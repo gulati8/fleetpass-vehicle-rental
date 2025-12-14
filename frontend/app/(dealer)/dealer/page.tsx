@@ -1,0 +1,105 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import apiClient from '@/lib/api-client';
+
+export default function DealerDashboard() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await apiClient.get('/auth/me');
+        setUser(response.data);
+      } catch (error) {
+        // Redirect to login if not authenticated
+        router.push('/auth/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    router.push('/');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">FleetPass</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-700">
+                {user.user.firstName} {user.user.lastName}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="border-4 border-dashed border-gray-200 rounded-lg p-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Welcome to {user.organization.name}!
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Your dealer dashboard is under construction. Here's what's coming:
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="font-semibold text-lg mb-2">Vehicle Management</h3>
+                <p className="text-gray-600 text-sm">Add, edit, and manage your vehicle inventory</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="font-semibold text-lg mb-2">Bookings</h3>
+                <p className="text-gray-600 text-sm">View and manage customer rental bookings</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="font-semibold text-lg mb-2">Leads & Deals</h3>
+                <p className="text-gray-600 text-sm">Track leads and close deals</p>
+              </div>
+            </div>
+
+            <div className="mt-8 p-4 bg-primary-50 rounded-lg">
+              <p className="text-sm text-primary-900">
+                ✅ <strong>Authentication working!</strong> You've successfully logged in with JWT authentication.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,227 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Single organization per deployment
+model Organization {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  billingEmail  String
+  settings      Json?    // {brand_colors, logo_url, etc.}
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  locations     Location[]
+  users         User[]
+}
+
+// Dealership locations
+model Location {
+  id              String   @id @default(uuid())
+  organizationId  String
+  name            String
+  addressLine1    String
+  addressLine2    String?
+  city            String
+  state           String
+  postalCode      String
+  country         String   @default("US")
+  latitude        Float?
+  longitude       Float?
+  phone           String?
+  hoursOfOperation Json?  // {monday: {open: "09:00", close: "18:00"}, ...}
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vehicles        Vehicle[]
+
+  @@index([organizationId])
+}
+
+// Dealer users
+model User {
+  id              String   @id @default(uuid())
+  organizationId  String
+  email           String   @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  role            String   // admin, manager, sales_agent, support
+  locationId      String?  // null for multi-location admins
+  isActive        Boolean  @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBookings Booking[] @relation("BookingCreatedBy")
+  createdLeads    Lead[] @relation("LeadCreatedBy")
+  assignedLeads   Lead[] @relation("LeadAssignedTo")
+  closedDeals     Deal[] @relation("DealClosedBy")
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+// Vehicles
+model Vehicle {
+  id                  String   @id @default(uuid())
+  locationId          String
+  vin                 String   @unique
+  make                String
+  model               String
+  year                Int
+  trim                String?
+  bodyType            String?  // sedan, suv, truck, etc.
+  exteriorColor       String?
+  interiorColor       String?
+  transmission        String?  // automatic, manual
+  fuelType            String?  // gas, diesel, electric, hybrid
+  mileage             Int?
+  dailyRateCents      Int      // stored in cents
+  weeklyRateCents     Int?
+  monthlyRateCents    Int?
+  features            Json?    // {bluetooth: true, backup_camera: true, ...}
+  imageUrls           String[] // array of image URLs
+  isAvailableForRent  Boolean  @default(true)
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  location            Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  bookings            Booking[]
+
+  @@index([locationId])
+  @@index([isAvailableForRent])
+  @@index([make, model])
+}
+
+// Customers
+model Customer {
+  id                    String   @id @default(uuid())
+  email                 String   @unique
+  phone                 String?
+  firstName             String
+  lastName              String
+  dateOfBirth           DateTime?
+  driverLicenseNumber   String?
+  driverLicenseState    String?
+  driverLicenseExpiry   DateTime?
+
+  // Mock KYC fields
+  kycStatus             String   @default("pending") // pending, in_progress, approved, rejected
+  kycInquiryId          String?  // mock Persona inquiry ID
+  kycVerifiedAt         DateTime?
+
+  // Mock Stripe fields
+  stripeCustomerId      String?  // mock Stripe customer ID
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  bookings              Booking[]
+  leads                 Lead[]
+  deals                 Deal[]
+
+  @@index([email])
+  @@index([kycStatus])
+}
+
+// Bookings
+model Booking {
+  id                      String   @id @default(uuid())
+  bookingNumber           String   @unique // BP-2024-001234
+  customerId              String
+  vehicleId               String
+  pickupLocationId        String   // reference to Location (not enforced at DB level for simplicity)
+  dropoffLocationId       String   // reference to Location
+  pickupDatetime          DateTime
+  dropoffDatetime         DateTime
+
+  // Pricing snapshot
+  dailyRateCents          Int
+  numDays                 Int
+  subtotalCents           Int
+  taxCents                Int
+  totalCents              Int
+
+  // Mock Payment
+  mockStripePaymentIntentId String?
+  depositCents            Int
+  depositPaidAt           DateTime?
+
+  // Status
+  status                  String   @default("pending") // pending, confirmed, active, completed, cancelled
+
+  // Metadata
+  createdById             String?
+  notes                   String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  customer                Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicle                 Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdBy               User? @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([pickupDatetime, dropoffDatetime])
+}
+
+// Leads
+model Lead {
+  id                  String   @id @default(uuid())
+  customerId          String?
+  customerEmail       String?  // if not yet a customer
+  customerName        String?
+  customerPhone       String?
+  source              String?  // website, phone, walk_in
+  vehicleInterestId   String?  // reference to Vehicle
+  status              String   @default("new") // new, contacted, qualified, converted, lost
+  assignedToId        String?
+  notes               String?
+  createdById         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customer            Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  assignedTo          User? @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy           User? @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  deals               Deal[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([assignedToId])
+}
+
+// Deals
+model Deal {
+  id                  String   @id @default(uuid())
+  leadId              String?
+  customerId          String
+  vehicleId           String   // reference to Vehicle (not enforced)
+  dealValueCents      Int
+  status              String   @default("pending") // pending, closed_won, closed_lost
+  closedAt            DateTime?
+  closedById          String?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  lead                Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  customer            Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  closedBy            User? @relation("DealClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([status])
+}
