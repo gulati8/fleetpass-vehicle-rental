@@ -1,8 +1,8 @@
 # Development Dockerfile for Backend
 FROM node:20-alpine
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++
+# Install build dependencies and OpenSSL for Prisma
+RUN apk add --no-cache python3 make g++ openssl openssl-dev
 
 WORKDIR /app
 
