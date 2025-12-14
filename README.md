@@ -4,63 +4,84 @@ A multi-tenant vehicle rental platform for car dealerships, built with Next.js, 
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Recommended: Docker Compose (Easiest)
 
+**Prerequisites:**
+- Docker Desktop installed
+
+**Start the entire stack with one command:**
+```bash
+docker compose up
+```
+
+This will start:
+- PostgreSQL database
+- Redis cache
+- Backend API (port 3001)
+- Frontend app (port 3000)
+
+**Access the app:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001/api/v1
+
+📖 **See [DOCKER.md](DOCKER.md) for complete Docker documentation**
+
+---
+
+### Alternative: Manual Setup
+
+**Prerequisites:**
 - Node.js 18+ installed
-- PostgreSQL 15+ installed (or use Docker)
+- PostgreSQL 15+ installed
+- Redis installed (optional, for caching)
 - npm or yarn
 
-### 1. Start PostgreSQL Database
+#### 1. Start PostgreSQL
 
-**Option A: Using Docker**
 ```bash
+# Using Docker
 docker run --name fleetpass-postgres \
   -e POSTGRES_PASSWORD=password \
   -e POSTGRES_DB=fleetpass \
   -p 5432:5432 \
   -d postgres:15
+
+# Or use your local PostgreSQL and create database 'fleetpass'
 ```
 
-**Option B: Use existing PostgreSQL**
-- Create a database named `fleetpass`
-- Update the DATABASE_URL in backend/.env
-
-### 2. Backend Setup
+#### 2. Backend Setup
 
 ```bash
 cd backend
-
-# Install dependencies
 npm install
 
-# Update .env with your database connection
-# DATABASE_URL="postgresql://user:password@localhost:5432/fleetpass?schema=public"
+# Create .env file with:
+# DATABASE_URL="postgresql://postgres:password@localhost:5432/fleetpass?schema=public"
+# REDIS_HOST=localhost
+# REDIS_PORT=6379
+# JWT_SECRET=your-secret-key
 
-# Generate Prisma Client
 npx prisma generate
+npx prisma migrate dev
 
-# Run migrations to create database tables
-npx prisma migrate dev --name init
-
-# Start the backend server
 npm run start:dev
 ```
 
-Backend will run on http://localhost:3001
+Backend runs on http://localhost:3001
 
-### 3. Frontend Setup
+#### 3. Frontend Setup
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
 
-# Start the frontend development server
+# Create .env.local with:
+# NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+
 npm run dev
 ```
 
-Frontend will run on http://localhost:3000
+Frontend runs on http://localhost:3000
 
 ## 🎯 Testing the Application
 
@@ -111,6 +132,7 @@ FleetPass/
 - NestJS (Node.js framework)
 - Prisma ORM
 - PostgreSQL
+- Redis (caching & session management)
 - Passport JWT
 - bcrypt
 
@@ -120,6 +142,10 @@ FleetPass/
 - Tailwind CSS
 - Axios
 
+**Infrastructure:**
+- Docker & Docker Compose
+- GitHub Actions (CI/CD)
+
 ## ✅ What's Working
 
 - ✅ User signup with organization creation
@@ -127,6 +153,9 @@ FleetPass/
 - ✅ Protected dealer dashboard
 - ✅ Automatic organization creation
 - ✅ Session management
+- ✅ Redis caching for user data
+- ✅ Docker Compose development environment
+- ✅ Hot reload for frontend and backend
 
 ## 🚧 What's Next
 

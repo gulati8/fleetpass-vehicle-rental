@@ -6,14 +6,19 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly USER_CACHE_TTL = 900; // 15 minutes
+  private readonly USER_CACHE_PREFIX = 'user:';
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private redis: RedisService,
   ) {}
 
   async signup(signupDto: SignupDto) {
@@ -101,6 +106,9 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    // Cache user data for quick access
+    await this.cacheUserData(user);
+
     // Generate JWT
     const accessToken = this.generateToken(user);
 
@@ -112,6 +120,15 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
+    // Try to get from cache first
+    const cacheKey = `${this.USER_CACHE_PREFIX}${userId}`;
+    const cachedData = await this.redis.getJson<any>(cacheKey);
+
+    if (cachedData) {
+      return cachedData;
+    }
+
+    // If not in cache, fetch from database
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -123,10 +140,15 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    return {
+    const result = {
       user: this.sanitizeUser(user),
       organization: user.organization,
     };
+
+    // Cache the result
+    await this.redis.setJson(cacheKey, result, this.USER_CACHE_TTL);
+
+    return result;
   }
 
   private generateToken(user: any): string {
@@ -151,5 +173,14 @@ export class AuthService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .substring(0, 50) + '-' + Date.now().toString(36);
+  }
+
+  private async cacheUserData(user: any): Promise<void> {
+    const cacheKey = `${this.USER_CACHE_PREFIX}${user.id}`;
+    const data = {
+      user: this.sanitizeUser(user),
+      organization: user.organization,
+    };
+    await this.redis.setJson(cacheKey, data, this.USER_CACHE_TTL);
   }
 }
