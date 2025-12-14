@@ -149,6 +149,23 @@ The following features are planned but not yet implemented:
 ### Health Check
 - `GET /api/v1/health` - Server health status
 
+## 🔄 CI/CD
+
+This project includes complete CI/CD pipelines using GitHub Actions:
+
+- ✅ **Continuous Integration:** Runs linting, type checking, and builds on every PR
+- ✅ **Continuous Deployment:** Automatically deploys to production on merge to main
+- ✅ **PR Previews:** Creates preview deployments for every pull request
+- ✅ **Database Migrations:** Automatically runs migrations on deployment
+
+**Workflows:**
+- `ci.yml` - Runs tests and builds on every push/PR
+- `deploy-backend.yml` - Deploys backend to Railway
+- `deploy-frontend.yml` - Deploys frontend to Vercel
+- `pr-preview.yml` - Creates preview deployments
+
+**Setup Guide:** See [`.github/CICD_SETUP.md`](.github/CICD_SETUP.md) for detailed configuration instructions.
+
 ## 🔒 Security
 
 - Passwords hashed with bcrypt (12 rounds)
