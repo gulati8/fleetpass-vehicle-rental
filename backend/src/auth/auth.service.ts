@@ -9,6 +9,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { User, Organization } from '@prisma/client';
+
+// Type for User with Organization included
+type UserWithOrganization = User & {
+  organization: Organization;
+};
 
 @Injectable()
 export class AuthService {
@@ -122,7 +128,10 @@ export class AuthService {
   async getMe(userId: string) {
     // Try to get from cache first
     const cacheKey = `${this.USER_CACHE_PREFIX}${userId}`;
-    const cachedData = await this.redis.getJson<any>(cacheKey);
+    const cachedData = await this.redis.getJson<{
+      user: Omit<User, 'passwordHash'>;
+      organization: Organization;
+    }>(cacheKey);
 
     if (cachedData) {
       return cachedData;
@@ -151,7 +160,7 @@ export class AuthService {
     return result;
   }
 
-  private generateToken(user: any): string {
+  private generateToken(user: User | UserWithOrganization): string {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -162,20 +171,25 @@ export class AuthService {
     return this.jwtService.sign(payload);
   }
 
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: User | UserWithOrganization) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...sanitized } = user;
     return sanitized;
   }
 
   private generateSlug(name: string): string {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .substring(0, 50) + '-' + Date.now().toString(36);
+    return (
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .substring(0, 50) +
+      '-' +
+      Date.now().toString(36)
+    );
   }
 
-  private async cacheUserData(user: any): Promise<void> {
+  private async cacheUserData(user: UserWithOrganization): Promise<void> {
     const cacheKey = `${this.USER_CACHE_PREFIX}${user.id}`;
     const data = {
       user: this.sanitizeUser(user),

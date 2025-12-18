@@ -25,9 +25,17 @@ export default function DealerDashboard() {
     fetchUser();
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    router.push('/');
+  const handleLogout = async () => {
+    try {
+      // Call backend logout endpoint to clear cookie
+      await apiClient.post('/auth/logout');
+    } catch (error) {
+      // Log error but continue with logout flow
+      console.error('Logout error:', error);
+    } finally {
+      // Redirect to login page
+      router.push('/auth/login');
+    }
   };
 
   if (loading) {

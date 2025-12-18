@@ -1,0 +1,16 @@
+{
+  "name": "@fleetpass/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for FleetPass frontend and backend",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {},
+  "keywords": [
+    "typescript",
+    "types",
+    "shared"
+  ],
+  "author": "FleetPass",
+  "license": "UNLICENSED",
+  "private": true
+}

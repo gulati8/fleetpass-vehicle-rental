@@ -12,12 +12,22 @@ dist/
 .next/
 out/
 
-# Environment variables
+# Environment variables - DO NOT COMMIT SECRETS
 .env
 .env.local
+.env.development
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Keep example files
+!.env.example
+!backend/.env.example
+!frontend/.env.local.example
 
 # Logs
 logs

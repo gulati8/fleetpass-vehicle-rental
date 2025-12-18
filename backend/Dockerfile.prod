@@ -1,8 +1,16 @@
-# Production Dockerfile for Backend
-FROM node:20-alpine AS builder
+# ==============================================================================
+# FleetPass Backend - Production Dockerfile
+# ==============================================================================
+# Multi-stage build for optimized production image
+# ==============================================================================
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl openssl-dev
+# ------------------------------------------------------------------------------
+# Stage 1: Dependencies
+# ------------------------------------------------------------------------------
+FROM node:20-alpine AS deps
+
+# Install build dependencies required for native modules
+RUN apk add --no-cache libc6-compat openssl
 
 WORKDIR /app
 
@@ -10,7 +18,27 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
+# Install production dependencies only
+RUN npm ci --only=production && npm cache clean --force
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# ------------------------------------------------------------------------------
+# Stage 2: Builder
+# ------------------------------------------------------------------------------
+FROM node:20-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache libc6-compat openssl python3 make g++
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install all dependencies (including dev dependencies for build)
 RUN npm ci
 
 # Generate Prisma Client
@@ -22,29 +50,40 @@ COPY . .
 # Build application
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine
+# ------------------------------------------------------------------------------
+# Stage 3: Production Runner
+# ------------------------------------------------------------------------------
+FROM node:20-alpine AS runner
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl openssl-dev
+# Install runtime dependencies
+RUN apk add --no-cache openssl curl
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY prisma ./prisma/
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nestjs
 
-# Install production dependencies only
-RUN npm ci --only=production
+# Copy production dependencies from deps stage
+COPY --from=deps --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=nestjs:nodejs /app/prisma ./prisma
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Copy built application from builder stage
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/package*.json ./
 
-# Copy built application
-COPY --from=builder /app/dist ./dist
+# Set environment to production
+ENV NODE_ENV=production
 
-# Expose port
+# Expose application port
 EXPOSE 3001
 
+# Switch to non-root user
+USER nestjs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:3001/health || exit 1
+
 # Start application
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main"]

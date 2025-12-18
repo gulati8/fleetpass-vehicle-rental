@@ -2,13 +2,427 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   CSS Custom Properties (Design Tokens)
+   ============================================================================ */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Semantic Color Tokens */
+    --color-background: 255 255 255;
+    --color-foreground: 23 23 23;
+    --color-muted: 245 245 245;
+    --color-muted-foreground: 115 115 115;
+    --color-border: 229 229 229;
+    --color-input: 229 229 229;
+    --color-ring: 14 165 233;
+
+    /* Component-specific tokens */
+    --color-card: 255 255 255;
+    --color-card-foreground: 23 23 23;
+    --color-popover: 255 255 255;
+    --color-popover-foreground: 23 23 23;
+
+    /* State colors */
+    --color-primary: 14 165 233;
+    --color-primary-foreground: 255 255 255;
+    --color-secondary: 20 184 166;
+    --color-secondary-foreground: 255 255 255;
+    --color-success: 34 197 94;
+    --color-warning: 245 158 11;
+    --color-error: 239 68 68;
+
+    /* Radius */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --color-background: 10 10 10;
+    --color-foreground: 250 250 250;
+    --color-muted: 38 38 38;
+    --color-muted-foreground: 163 163 163;
+    --color-border: 38 38 38;
+    --color-input: 38 38 38;
+    --color-ring: 56 189 248;
+
+    --color-card: 23 23 23;
+    --color-card-foreground: 250 250 250;
+    --color-popover: 10 10 10;
+    --color-popover-foreground: 250 250 250;
+
+    --color-primary: 56 189 248;
+    --color-primary-foreground: 8 47 73;
+    --color-secondary: 45 212 191;
+    --color-secondary-foreground: 4 47 46;
+  }
+
+  /* ============================================================================
+     Typography Base Styles
+     ============================================================================ */
+
+  * {
+    @apply border-neutral-200 dark:border-neutral-800;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50;
+    @apply antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-neutral-900 dark:text-neutral-50;
+    @apply tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl sm:text-5xl lg:text-6xl;
+  }
+
+  h2 {
+    @apply text-3xl sm:text-4xl lg:text-5xl;
+  }
+
+  h3 {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+
+  h4 {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+
+  h5 {
+    @apply text-lg sm:text-xl;
+  }
+
+  h6 {
+    @apply text-base sm:text-lg;
+  }
+
+  p {
+    @apply text-neutral-600 dark:text-neutral-400;
+    @apply leading-relaxed;
+  }
+
+  a {
+    @apply text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300;
+    @apply transition-colors duration-200;
+  }
+
+  /* ============================================================================
+     Focus & Selection Styles
+     ============================================================================ */
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-white dark:ring-offset-neutral-950;
+  }
+
+  ::selection {
+    @apply bg-primary-200 text-primary-900 dark:bg-primary-900 dark:text-primary-100;
+  }
+
+  /* ============================================================================
+     Smooth Scrolling (respects reduced-motion)
+     ============================================================================ */
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+/* ============================================================================
+   Component Utility Classes
+   ============================================================================ */
+
+@layer components {
+  /* Button Patterns */
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2;
+    @apply rounded-lg font-medium;
+    @apply transition-all duration-200;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn-base;
+    @apply bg-primary-600 text-white;
+    @apply hover:bg-primary-700 active:bg-primary-800;
+    @apply focus-visible:ring-primary-500;
+    @apply shadow-sm hover:shadow-md;
+  }
+
+  .btn-secondary {
+    @apply btn-base;
+    @apply bg-secondary-600 text-white;
+    @apply hover:bg-secondary-700 active:bg-secondary-800;
+    @apply focus-visible:ring-secondary-500;
+    @apply shadow-sm hover:shadow-md;
+  }
+
+  .btn-outline {
+    @apply btn-base;
+    @apply bg-white text-neutral-700 border-2 border-neutral-300;
+    @apply hover:bg-neutral-50 hover:border-neutral-400 active:bg-neutral-100;
+    @apply focus-visible:ring-neutral-500;
+    @apply dark:bg-neutral-900 dark:text-neutral-300 dark:border-neutral-700;
+    @apply dark:hover:bg-neutral-800 dark:hover:border-neutral-600;
+  }
+
+  .btn-ghost {
+    @apply btn-base;
+    @apply bg-transparent text-neutral-700;
+    @apply hover:bg-neutral-100 active:bg-neutral-200;
+    @apply focus-visible:ring-neutral-500;
+    @apply dark:text-neutral-300 dark:hover:bg-neutral-800 dark:active:bg-neutral-700;
+  }
+
+  .btn-danger {
+    @apply btn-base;
+    @apply bg-error-600 text-white;
+    @apply hover:bg-error-700 active:bg-error-800;
+    @apply focus-visible:ring-error-500;
+    @apply shadow-sm hover:shadow-md;
+  }
+
+  /* Input Patterns */
+  .input-base {
+    @apply w-full rounded-lg border border-neutral-300;
+    @apply bg-white px-4 py-2.5 text-neutral-900;
+    @apply placeholder:text-neutral-400;
+    @apply transition-all duration-200;
+    @apply focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-neutral-50;
+    @apply dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100;
+    @apply dark:focus:border-primary-400 dark:disabled:bg-neutral-800;
+  }
+
+  .input-error {
+    @apply input-base;
+    @apply border-error-500 focus:border-error-500 focus:ring-error-500/20;
+  }
+
+  .input-success {
+    @apply input-base;
+    @apply border-success-500 focus:border-success-500 focus:ring-success-500/20;
+  }
+
+  /* Card Patterns */
+  .card {
+    @apply bg-white rounded-xl border border-neutral-200;
+    @apply shadow-sm;
+    @apply dark:bg-neutral-900 dark:border-neutral-800;
+  }
+
+  .card-hover {
+    @apply card;
+    @apply transition-all duration-200;
+    @apply hover:shadow-md hover:border-neutral-300;
+    @apply dark:hover:border-neutral-700;
+  }
+
+  .card-clickable {
+    @apply card-hover;
+    @apply cursor-pointer;
+    @apply active:scale-[0.98];
+  }
+
+  /* Badge Patterns */
+  .badge {
+    @apply inline-flex items-center gap-1;
+    @apply px-2.5 py-1 rounded-full;
+    @apply text-xs font-medium;
+    @apply transition-colors duration-200;
+  }
+
+  .badge-primary {
+    @apply badge;
+    @apply bg-primary-100 text-primary-700;
+    @apply dark:bg-primary-900/30 dark:text-primary-300;
+  }
+
+  .badge-secondary {
+    @apply badge;
+    @apply bg-secondary-100 text-secondary-700;
+    @apply dark:bg-secondary-900/30 dark:text-secondary-300;
+  }
+
+  .badge-success {
+    @apply badge;
+    @apply bg-success-100 text-success-700;
+    @apply dark:bg-success-900/30 dark:text-success-300;
+  }
+
+  .badge-warning {
+    @apply badge;
+    @apply bg-warning-100 text-warning-700;
+    @apply dark:bg-warning-900/30 dark:text-warning-300;
+  }
+
+  .badge-error {
+    @apply badge;
+    @apply bg-error-100 text-error-700;
+    @apply dark:bg-error-900/30 dark:text-error-300;
+  }
+
+  .badge-neutral {
+    @apply badge;
+    @apply bg-neutral-100 text-neutral-700;
+    @apply dark:bg-neutral-800 dark:text-neutral-300;
+  }
+
+  /* Alert Patterns */
+  .alert {
+    @apply flex gap-3 p-4 rounded-lg border;
+    @apply transition-all duration-200;
+  }
+
+  .alert-info {
+    @apply alert;
+    @apply bg-primary-50 border-primary-200 text-primary-900;
+    @apply dark:bg-primary-900/20 dark:border-primary-800 dark:text-primary-100;
+  }
+
+  .alert-success {
+    @apply alert;
+    @apply bg-success-50 border-success-200 text-success-900;
+    @apply dark:bg-success-900/20 dark:border-success-800 dark:text-success-100;
+  }
+
+  .alert-warning {
+    @apply alert;
+    @apply bg-warning-50 border-warning-200 text-warning-900;
+    @apply dark:bg-warning-900/20 dark:border-warning-800 dark:text-warning-100;
+  }
+
+  .alert-error {
+    @apply alert;
+    @apply bg-error-50 border-error-200 text-error-900;
+    @apply dark:bg-error-900/20 dark:border-error-800 dark:text-error-100;
+  }
+
+  /* Table Styles */
+  .table {
+    @apply w-full text-left;
+  }
+
+  .table thead {
+    @apply border-b border-neutral-200 dark:border-neutral-800;
+  }
+
+  .table th {
+    @apply px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100;
+  }
+
+  .table td {
+    @apply px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400;
+  }
+
+  .table tbody tr {
+    @apply border-b border-neutral-100 dark:border-neutral-900;
+    @apply transition-colors duration-150;
+  }
+
+  .table tbody tr:hover {
+    @apply bg-neutral-50 dark:bg-neutral-900/50;
+  }
+
+  .table tbody tr:last-child {
+    @apply border-b-0;
+  }
+}
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+
+@layer utilities {
+  /* Animation Utilities */
+  .animate-in {
+    @apply animate-fade-in;
+  }
+
+  .animate-out {
+    @apply animate-fade-out;
+  }
+
+  /* Shimmer Effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Text Balance (better text wrapping) */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Gradient Utilities */
+  .gradient-primary {
+    @apply bg-gradient-to-r from-primary-600 to-primary-500;
+  }
+
+  .gradient-secondary {
+    @apply bg-gradient-to-r from-secondary-600 to-secondary-500;
+  }
+
+  .gradient-brand {
+    @apply bg-gradient-to-r from-primary-600 via-secondary-600 to-primary-600;
+  }
+
+  /* Truncate Text Utilities */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    @apply overflow-hidden;
+  }
+
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    @apply overflow-hidden;
+  }
+
+  .truncate-4 {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    @apply overflow-hidden;
+  }
+
+  /* Glass Morphism */
+  .glass {
+    @apply bg-white/80 backdrop-blur-md;
+    @apply border border-white/20;
+    @apply dark:bg-neutral-900/80 dark:border-neutral-800/50;
+  }
+
+  /* Section Container */
+  .section-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Aspect Ratio Helpers */
+  .aspect-video {
+    @apply aspect-[16/9];
+  }
+
+  .aspect-square {
+    @apply aspect-[1/1];
+  }
+
+  .aspect-portrait {
+    @apply aspect-[3/4];
   }
 }

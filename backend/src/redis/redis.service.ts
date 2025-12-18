@@ -1,20 +1,24 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { LoggerService } from '../common/logger/logger.service';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private client: Redis;
+  private client!: Redis;
+  private readonly logger = new LoggerService(RedisService.name);
 
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
     const host = this.configService.get<string>('REDIS_HOST', 'localhost');
     const port = this.configService.get<number>('REDIS_PORT', 6379);
+    const password = this.configService.get<string>('REDIS_PASSWORD');
 
     this.client = new Redis({
       host,
       port,
+      password, // Enable password authentication
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
         return delay;
@@ -22,11 +26,23 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.client.on('connect', () => {
-      console.log('Redis client connected');
+      this.logger.log('Redis client connected');
+    });
+
+    this.client.on('ready', () => {
+      this.logger.log('Redis client ready');
     });
 
     this.client.on('error', (err) => {
-      console.error('Redis client error:', err);
+      this.logger.error('Redis client error', err.stack);
+    });
+
+    this.client.on('close', () => {
+      this.logger.warn('Redis connection closed');
+    });
+
+    this.client.on('reconnecting', () => {
+      this.logger.log('Redis client reconnecting');
     });
   }
 
@@ -50,7 +66,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       return JSON.parse(value);
     } catch (error) {
-      console.error('Error parsing JSON from Redis:', error);
+      this.logger.error(
+        'Error parsing JSON from Redis',
+        error instanceof Error ? error.stack : String(error),
+        { key },
+      );
       return null;
     }
   }
@@ -69,6 +89,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   /**
    * Set JSON value with optional expiration (in seconds)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async setJson(key: string, value: any, ttl?: number): Promise<void> {
     const serialized = JSON.stringify(value);
     await this.set(key, serialized, ttl);

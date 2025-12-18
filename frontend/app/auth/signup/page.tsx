@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import apiClient from '@/lib/api-client';
+import { useSignup } from '@/lib/hooks/api';
+import { extractErrorMessage } from '@/lib/hooks/api/use-api-error';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -14,26 +15,29 @@ export default function SignupPage() {
     lastName: '',
     organizationName: '',
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const signupMutation = useSignup();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/signup', formData);
+      // Note: Backend expects fullName and role, adjust data structure
+      const signupData = {
+        email: formData.email,
+        password: formData.password,
+        fullName: `${formData.firstName} ${formData.lastName}`,
+        phone: '', // TODO: Add phone field to form
+        role: 'DEALER' as const,
+      };
 
-      // Store token
-      localStorage.setItem('access_token', response.data.access_token);
+      await signupMutation.mutateAsync(signupData);
 
+      // Cookie is automatically set by browser
       // Redirect to dealer dashboard
       router.push('/dealer');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Signup failed. Please try again.');
-    } finally {
-      setLoading(false);
+      // Error is handled by mutation
     }
   };
 
@@ -53,9 +57,11 @@ export default function SignupPage() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
+          {signupMutation.error && (
             <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">{error}</p>
+              <p className="text-sm text-red-800">
+                {extractErrorMessage(signupMutation.error)}
+              </p>
             </div>
           )}
 
@@ -148,10 +154,10 @@ export default function SignupPage() {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={signupMutation.isPending}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {signupMutation.isPending ? 'Creating account...' : 'Create account'}
             </button>
           </div>
         </form>

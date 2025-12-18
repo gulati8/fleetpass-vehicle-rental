@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import apiClient from '@/lib/api-client';
+import { useLogin } from '@/lib/hooks/api';
+import { extractErrorMessage } from '@/lib/hooks/api/use-api-error';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,26 +12,20 @@ export default function LoginPage() {
     email: '',
     password: '',
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const loginMutation = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/login', formData);
+      await loginMutation.mutateAsync(formData);
 
-      // Store token
-      localStorage.setItem('access_token', response.data.access_token);
-
+      // Cookie is automatically set by browser
       // Redirect to dealer dashboard
       router.push('/dealer');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
+      // Error is handled by mutation, but we catch here to prevent unhandled rejection
     }
   };
 
@@ -50,9 +45,11 @@ export default function LoginPage() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
+          {loginMutation.error && (
             <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">{error}</p>
+              <p className="text-sm text-red-800">
+                {extractErrorMessage(loginMutation.error)}
+              </p>
             </div>
           )}
 
@@ -95,10 +92,10 @@ export default function LoginPage() {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loginMutation.isPending}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>

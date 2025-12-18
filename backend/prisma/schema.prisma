@@ -22,6 +22,7 @@ model Organization {
 
   locations     Location[]
   users         User[]
+  payments      Payment[]
 }
 
 // Dealership locations
@@ -104,6 +105,8 @@ model Vehicle {
   @@index([locationId])
   @@index([isAvailableForRent])
   @@index([make, model])
+  // NEW: Composite index for location + availability queries
+  @@index([locationId, isAvailableForRent, make])
 }
 
 // Customers
@@ -135,6 +138,8 @@ model Customer {
 
   @@index([email])
   @@index([kycStatus])
+  // NEW: Index for phone lookups (support calls, quick customer lookup)
+  @@index([phone])
 }
 
 // Bookings
@@ -172,11 +177,43 @@ model Booking {
   customer                Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   vehicle                 Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   createdBy               User? @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  payments                Payment[]
 
   @@index([customerId])
   @@index([vehicleId])
   @@index([status])
   @@index([pickupDatetime, dropoffDatetime])
+  // NEW: CRITICAL - Composite index for availability checks (most frequent query)
+  @@index([vehicleId, pickupDatetime, dropoffDatetime])
+  // NEW: Index for status filtering with date ranges
+  @@index([status, pickupDatetime])
+  // NEW: Index for customer booking history queries
+  @@index([customerId, status, createdAt])
+}
+
+// Payments
+model Payment {
+  id                    String   @id @default(uuid())
+  bookingId             String
+  amountCents           Int
+  currency              String   @default("usd")
+  status                String   // 'pending', 'processing', 'succeeded', 'failed', 'refunded'
+  stripePaymentId       String?  // Mock Stripe payment intent ID
+  stripeCustomerId      String?  // Mock Stripe customer ID
+  paymentMethod         String?  // 'card', 'bank_transfer', etc.
+  failureReason         String?
+  refundedAmountCents   Int?
+  organizationId        String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  booking               Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([stripePaymentId])
 }
 
 // Leads
@@ -203,6 +240,10 @@ model Lead {
   @@index([customerId])
   @@index([status])
   @@index([assignedToId])
+  // NEW: CRITICAL - Composite index for lead dashboard queries (status + assignment + date)
+  @@index([status, assignedToId, createdAt])
+  // NEW: Index for lead source analytics
+  @@index([source, status])
 }
 
 // Deals
@@ -225,4 +266,6 @@ model Deal {
 
   @@index([customerId])
   @@index([status])
+  // NEW: Index for deal pipeline queries (status + close date for reporting)
+  @@index([status, closedAt])
 }

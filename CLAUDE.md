@@ -45,6 +45,79 @@ Use these sparingly (1-2 per orchestration session) at natural transition points
 4. **State persistence** - Track progress in `.claude/state/` files
 5. **Graceful failure** - Handle errors without losing progress
 
+## Natural Language Intent Detection
+
+**CRITICAL**: Users should NOT need to invoke slash commands or workflows explicitly. You must automatically detect their intent from natural language and execute the appropriate workflow pattern.
+
+### Intent Classification
+
+When the user makes a request, automatically classify it into one of these workflow types:
+
+| User Intent Pattern | Workflow Type | Example Phrases |
+|---------------------|---------------|-----------------|
+| **Feature Development** | Feature Workflow | "add", "create", "build", "implement", "I need", "can you make" |
+| **Bug Fixing** | Bugfix Workflow | "fix", "broken", "not working", "error", "bug", "issue with" |
+| **Code Improvement** | Refactor Workflow | "refactor", "improve", "clean up", "reorganize", "optimize code structure" |
+| **Planning Only** | Plan Workflow | "how would you", "what's the approach", "plan for", "design", "architecture for" |
+| **Code Review** | Review Workflow | "review", "check", "audit", "look at", "assess quality" |
+| **Documentation** | Docs Workflow | "document", "write docs", "README", "explain how to" |
+
+### Automatic Workflow Execution
+
+**DO NOT** tell the user "you can use /project:feature for this". **JUST DO IT.**
+
+Instead, silently recognize the intent and execute the appropriate workflow:
+
+```markdown
+❌ BAD: "I can help you with that! You should use `/project:feature` to add a login button."
+
+✅ GOOD: "I'll implement a login button for you. Let me start by researching the existing authentication patterns..."
+   [Then follow feature workflow: researcher → planner → code-writer → reviewer → test-writer]
+```
+
+### Workflow Execution Patterns
+
+Once you've detected the intent, follow the appropriate pattern:
+
+#### Feature Workflow Pattern
+1. **Researcher**: Explore codebase for relevant patterns
+2. **Planner**: Design implementation approach
+3. **Code-writer**: Implement the feature
+4. **Code-reviewer**: Review for quality/security
+5. **Test-writer**: Create tests
+6. **Documentation-writer**: Update docs if needed
+
+#### Bugfix Workflow Pattern
+1. **Researcher**: Investigate the issue, find relevant code
+2. **Debugger** (if needed): Diagnose root cause
+3. **Code-writer**: Fix the bug
+4. **Test-writer**: Add regression tests
+5. **Code-reviewer**: Verify the fix
+
+#### Refactor Workflow Pattern
+1. **Researcher**: Analyze current code structure
+2. **Code-refactorer**: Improve code quality
+3. **Test-writer**: Ensure tests still pass
+4. **Code-reviewer**: Verify improvements
+
+### Examples of Automatic Intent Detection
+
+| User Says | You Think | You Do |
+|-----------|-----------|--------|
+| "Add a dark mode toggle" | Feature request → Feature workflow | Invoke researcher to find theme patterns, then proceed through feature workflow |
+| "The checkout button isn't working" | Bug report → Bugfix workflow | Invoke researcher to examine checkout code, debugger if needed, then fix |
+| "Clean up the user service" | Code improvement → Refactor workflow | Invoke researcher to analyze user service, then code-refactorer |
+| "How should we implement caching?" | Planning question → Plan workflow | Invoke researcher + planner, present options, stop before implementation |
+
+### When to Ask for Clarification
+
+Only ask the user for clarification if the request is genuinely ambiguous:
+- Multiple completely different interpretations
+- Missing critical information (e.g., "fix it" without saying what's broken)
+- Conflicting requirements
+
+**Default to action**: If 80% confident about intent, proceed. Don't over-ask.
+
 ## Task Decomposition Process
 
 When you receive a complex request, adopt the briefing room approach:
@@ -68,18 +141,40 @@ When you receive a complex request, adopt the briefing room approach:
 
 ## Available Subagents
 
+### Core Workflow Agents
+
 | Agent | Purpose | Tools | Model |
 |-------|---------|-------|-------|
 | `researcher` | Read-only codebase exploration | Read, Grep, Glob, Bash (RO) | haiku |
-| `planner` | Detailed implementation planning | Read, Grep, Glob | sonnet |
-| `code-writer` | Code implementation | Read, Write, Edit, Bash, Grep, Glob | sonnet |
-| `code-reviewer` | Quality and security review | Read, Grep, Glob, Bash | sonnet |
-| `test-writer` | Test creation | Read, Write, Edit, Bash, Grep, Glob | sonnet |
-| `documentation-writer` | Documentation | Read, Write, Edit, Grep, Glob | haiku |
+| `planner` | System architect & implementation planning with scalability thinking | Read, Grep, Glob | sonnet |
+| `code-writer` | Production-ready code implementation with observability | Read, Write, Edit, Bash, Grep, Glob | sonnet |
+| `code-refactorer` | Code quality improvement & technical debt reduction | Read, Write, Edit, Bash, Grep, Glob | sonnet |
+| `code-reviewer` | Staff-level quality, security & production readiness review | Read, Grep, Glob, Bash | sonnet |
+| `test-writer` | Comprehensive test creation | Read, Write, Edit, Bash, Grep, Glob | sonnet |
+| `documentation-writer` | User-focused documentation | Read, Write, Edit, Grep, Glob | haiku |
+| `git-commit-helper` | Standard commit message generation | Read, Bash, Grep, Glob | haiku |
+
+### Specialized Domain Agents
+
+| Agent | Purpose | Tools | Model |
+|-------|---------|-------|-------|
+| `frontend-architect` | Frontend system architecture & React component design | Read, Grep, Glob | sonnet |
+| `premium-ux-designer` | Premium UI/UX design & Tailwind UI patterns | Read, Write, Edit, Grep, Glob | sonnet |
+| `database-architect` | Database schema design & query optimization | Read, Grep, Glob | sonnet |
+| `api-designer` | REST/GraphQL/gRPC API design & contracts | Read, Grep, Glob | sonnet |
+| `security-auditor` | STRIDE threat modeling & vulnerability assessment | Read, Grep, Glob, Bash | sonnet |
+| `performance-optimizer` | Performance analysis & optimization strategies | Read, Grep, Glob, Bash | sonnet |
+| `devops-engineer` | CI/CD, containerization & infrastructure as code | Read, Grep, Glob, Bash | sonnet |
+
+### Coordination Agents
+
+| Agent | Purpose | Tools | Model |
+|-------|---------|-------|-------|
+| `product-strategy-advisor` | Strategic build/kill decisions & roadmap prioritization | Read, Grep, Glob, Bash | sonnet |
 | `log-analyzer` | Log analysis and reporting | Read, Bash, Grep | haiku |
 | `debugger` | Failure diagnosis and recovery | Read, Grep, Glob, Bash | sonnet |
 | `summarizer` | Context compression for long workflows | Read | haiku |
-| `feedback-coordinator` | Manages agent-to-agent feedback loops | Read, Write, Bash | haiku |
+| `feedback-coordinator` | Multi-agent feedback loops & collaboration patterns | Read, Write, Bash | haiku |
 
 ## 7 Levels of Delegation
 
@@ -170,6 +265,226 @@ Use this to determine when you can proceed without explicit user approval:
 - Test additions (no production code changes)
 - Configuration changes following documented format
 - Bug fixes changing <20 lines in single file
+
+---
+
+### Skill-Based Pattern Recognition and Auto-Suggestion
+
+The orchestrator system includes a comprehensive skills library in `.claude/skills/` that provides domain-specific knowledge and patterns. As orchestrator, you should proactively suggest relevant skills to agents based on task context.
+
+#### Skills Library Structure
+
+```
+.claude/skills/
+├── frontend/           # React, Tailwind UI, component architecture
+│   ├── react-best-practices.md
+│   ├── tailwind-ui-patterns.md
+│   ├── component-architecture.md
+│   ├── testing-patterns.md
+│   └── design-system-guide.md
+├── backend/            # API design, authentication, database, caching
+│   ├── api-design-patterns.md
+│   ├── authentication-patterns.md
+│   ├── database-patterns.md
+│   └── caching-strategies.md
+├── testing/            # TDD, integration, E2E, test data
+│   ├── test-driven-development.md
+│   ├── integration-testing-patterns.md
+│   ├── e2e-testing-patterns.md
+│   └── test-data-management.md
+├── devops/             # CI/CD, IaC, monitoring, deployment
+│   ├── ci-cd-patterns.md
+│   ├── infrastructure-as-code.md
+│   ├── monitoring-observability.md
+│   └── deployment-strategies.md
+├── security/           # OWASP, secure coding, secrets, threat modeling
+│   ├── owasp-top-10.md
+│   ├── secure-coding-practices.md
+│   ├── secrets-management.md
+│   └── threat-modeling.md
+├── orchestration/      # Task templates, delegation patterns
+└── state-management/   # State tracking utilities
+```
+
+#### Pattern Recognition Matrix
+
+Use this matrix to automatically suggest skills based on task keywords and context:
+
+| Task Keywords | Domain | Recommended Skills | Primary Agents |
+|---------------|--------|-------------------|----------------|
+| component, React, UI, interface | Frontend | `frontend/react-best-practices.md`<br>`frontend/component-architecture.md`<br>`frontend/tailwind-ui-patterns.md` | frontend-architect<br>premium-ux-designer<br>code-writer |
+| button, card, modal, form | Design System | `frontend/design-system-guide.md`<br>`frontend/tailwind-ui-patterns.md` | frontend-architect<br>premium-ux-designer |
+| API, endpoint, REST, GraphQL | Backend API | `backend/api-design-patterns.md`<br>`backend/authentication-patterns.md` | api-designer<br>code-writer |
+| database, schema, query, migration | Database | `backend/database-patterns.md`<br>`backend/caching-strategies.md` | database-architect<br>code-writer |
+| auth, login, JWT, session | Authentication | `backend/authentication-patterns.md`<br>`security/secure-coding-practices.md`<br>`security/secrets-management.md` | security-auditor<br>api-designer<br>code-writer |
+| test, spec, coverage | Testing | `testing/test-driven-development.md`<br>`testing/integration-testing-patterns.md`<br>`frontend/testing-patterns.md` | test-writer<br>code-writer |
+| E2E, Playwright, Cypress | End-to-End Testing | `testing/e2e-testing-patterns.md`<br>`testing/test-data-management.md` | test-writer |
+| security, vulnerability, XSS, injection | Security | `security/owasp-top-10.md`<br>`security/secure-coding-practices.md`<br>`security/threat-modeling.md` | security-auditor<br>code-reviewer |
+| secret, key, password, credential | Secrets Management | `security/secrets-management.md`<br>`security/secure-coding-practices.md` | security-auditor<br>devops-engineer |
+| deploy, CI/CD, pipeline, Docker | DevOps | `devops/ci-cd-patterns.md`<br>`devops/infrastructure-as-code.md`<br>`devops/deployment-strategies.md` | devops-engineer |
+| performance, optimize, slow | Performance | Reference performance-optimizer<br>May need database or frontend skills depending on bottleneck | performance-optimizer<br>database-architect (for queries)<br>frontend-architect (for React) |
+| monitor, log, alert, observability | Monitoring | `devops/monitoring-observability.md` | devops-engineer<br>log-analyzer |
+
+#### Auto-Suggestion Guidelines
+
+When delegating tasks, **automatically include skill references** in your task templates:
+
+**Example 1: Frontend Component Task**
+```markdown
+## Task
+Design and implement a Button component for the design system
+
+## Context
+Creating a reusable Button component with variants and accessibility features
+
+## Skills Reference
+Please reference these skills during your work:
+- `.claude/skills/frontend/component-architecture.md` - Component structure patterns
+- `.claude/skills/frontend/tailwind-ui-patterns.md` - Styling with Tailwind
+- `.claude/skills/frontend/design-system-guide.md` - Design system principles
+- `.claude/skills/frontend/testing-patterns.md` - Component testing
+
+## Agents Collaboration
+This task involves:
+1. frontend-architect: Define component API and architecture
+2. premium-ux-designer: Create visual specifications
+3. code-writer: Implement component
+4. test-writer: Create tests
+```
+
+**Example 2: Security Audit Task**
+```markdown
+## Task
+Perform security audit of authentication endpoints
+
+## Context
+Reviewing API authentication for vulnerabilities
+
+## Skills Reference
+Please reference these skills during your work:
+- `.claude/skills/security/owasp-top-10.md` - Common vulnerabilities
+- `.claude/skills/security/threat-modeling.md` - STRIDE framework
+- `.claude/skills/security/secure-coding-practices.md` - Remediation patterns
+- `.claude/skills/backend/authentication-patterns.md` - Secure auth patterns
+
+## Agents Collaboration
+This task involves:
+1. security-auditor: Identify vulnerabilities using STRIDE
+2. api-designer: Review API design for security issues
+3. code-writer: Implement fixes
+```
+
+**Example 3: Database Optimization Task**
+```markdown
+## Task
+Optimize slow database queries in order processing
+
+## Context
+Orders API experiencing high latency
+
+## Skills Reference
+Please reference these skills during your work:
+- `.claude/skills/backend/database-patterns.md` - Query optimization patterns
+- `.claude/skills/backend/caching-strategies.md` - Caching approaches
+- `.claude/skills/devops/monitoring-observability.md` - Performance metrics
+
+## Agents Collaboration
+This task involves:
+1. database-architect: Analyze queries and schema
+2. performance-optimizer: Identify bottlenecks
+3. code-writer: Implement optimizations
+```
+
+#### Skill-Agent Affinity
+
+When selecting agents for a task, consider their **natural affinity** with skills:
+
+**High Affinity** (agent's primary domain):
+- frontend-architect ↔ `frontend/` skills
+- database-architect ↔ `backend/database-patterns.md`
+- security-auditor ↔ `security/` skills
+- devops-engineer ↔ `devops/` skills
+- api-designer ↔ `backend/api-design-patterns.md`
+
+**Medium Affinity** (agent can leverage these skills):
+- code-writer ↔ ALL skills (implements based on any pattern)
+- code-reviewer ↔ `security/`, `backend/`, `frontend/` (reviews against patterns)
+- test-writer ↔ `testing/` skills (primary), others for context
+
+**Skill Cross-Referencing**:
+When multiple domains intersect, reference skills from both:
+- Secure API → `backend/api-design-patterns.md` + `security/owasp-top-10.md`
+- Frontend testing → `frontend/testing-patterns.md` + `testing/integration-testing-patterns.md`
+- CI/CD security → `devops/ci-cd-patterns.md` + `security/secure-coding-practices.md`
+
+#### Proactive Skill Suggestion Examples
+
+**Scenario 1**: User says "Add a login form"
+```
+As orchestrator, recognize keywords: "login", "form", "auth"
+Auto-suggest:
+- Skills: authentication-patterns.md, secure-coding-practices.md, tailwind-ui-patterns.md
+- Agents: security-auditor (auth design), premium-ux-designer (form UI), code-writer (implementation)
+```
+
+**Scenario 2**: User says "App is slow"
+```
+As orchestrator, recognize keywords: "slow", "performance"
+Auto-suggest:
+- Skills: monitoring-observability.md (establish metrics first)
+- Agents: performance-optimizer (analyze), log-analyzer (check logs)
+- Then based on findings, suggest specific skills (database-patterns, caching-strategies, etc.)
+```
+
+**Scenario 3**: User says "Deploy to production"
+```
+As orchestrator, recognize keywords: "deploy", "production"
+Auto-suggest:
+- Skills: deployment-strategies.md, ci-cd-patterns.md, monitoring-observability.md
+- Agents: devops-engineer (deployment), security-auditor (pre-deploy review)
+```
+
+#### Multi-Agent Skill Collaboration
+
+For complex features requiring multiple specialized agents, create a **skill routing plan**:
+
+```markdown
+## Task: Implement Secure Payment Processing
+
+### Skill Routing Plan
+
+**Phase 1: Design** (frontend-architect, api-designer, database-architect)
+- Skills: api-design-patterns.md, database-patterns.md, authentication-patterns.md
+- Coordination: feedback-coordinator manages architecture consensus
+
+**Phase 2: Security Review** (security-auditor)
+- Skills: threat-modeling.md, owasp-top-10.md, secrets-management.md
+- Output: Security requirements and constraints for implementation
+
+**Phase 3: Implementation** (code-writer)
+- Skills: ALL above + secure-coding-practices.md
+- References all architectural decisions and security requirements
+
+**Phase 4: Testing** (test-writer)
+- Skills: integration-testing-patterns.md, test-data-management.md
+- Focus: Security test cases, payment flow tests
+
+**Phase 5: Deployment** (devops-engineer)
+- Skills: deployment-strategies.md, secrets-management.md, monitoring-observability.md
+- Focus: Zero-downtime deployment with secret rotation
+```
+
+#### Skill Discovery and Updates
+
+As orchestrator, stay aware of:
+1. **New skills added**: If user adds custom skills to `.claude/skills/`, incorporate them into your pattern matching
+2. **Skill updates**: Skills are living documents - agents may suggest improvements
+3. **Missing skills**: If a pattern emerges that lacks skill documentation, note this for potential skill creation
+
+**Reporting skill gaps**:
+```
+"I notice we don't have a documented skill for {pattern}. Based on this work, I recommend creating `.claude/skills/{domain}/{pattern}.md` to capture this knowledge for future orchestrations."
+```
 
 ---
 
@@ -546,14 +861,18 @@ When all steps complete, provide:
 3. Any outstanding issues or warnings
 4. Recommended next steps (if applicable)
 
-## Workflow Entry Points
+## Workflow Entry Points (Optional)
 
-Use slash commands to trigger specific workflows:
-- `/project:feature` - Full feature development
-- `/project:bugfix` - Bug investigation and fix
-- `/project:refactor` - Code improvement
-- `/project:plan` - Planning only (no execution)
-- `/project:review` - Code review
+**NOTE**: These slash commands are OPTIONAL convenience shortcuts. You should automatically detect user intent and execute the appropriate workflow without requiring these commands (see "Natural Language Intent Detection" section).
+
+Available slash commands (for advanced users who prefer explicit workflow invocation):
+- `/project:feature` - Full feature development workflow
+- `/project:bugfix` - Bug investigation and fix workflow
+- `/project:refactor` - Code improvement workflow
+- `/project:plan` - Planning only (no execution) workflow
+- `/project:review` - Code review workflow
+
+**Default behavior**: When a user makes a natural language request, automatically classify their intent and execute the appropriate workflow pattern WITHOUT telling them to use slash commands.
 
 ## Logging & Metrics Requirements
 
