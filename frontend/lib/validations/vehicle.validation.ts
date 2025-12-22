@@ -80,23 +80,23 @@ export const vehicleSchema = z.object({
     .optional()
     .nullable(),
 
-  // Pricing (stored in cents)
+  // Pricing (form input in dollars, stored in cents)
   dailyRateCents: z.coerce
     .number({ invalid_type_error: 'Daily rate must be a number' })
-    .int('Daily rate must be a whole number')
-    .min(100, 'Daily rate must be at least $1.00')
-    .max(999900, 'Daily rate cannot exceed $9,999.00'),
+    .positive('Daily rate must be greater than 0')
+    .min(1, 'Daily rate must be at least $1.00')
+    .max(9999, 'Daily rate cannot exceed $9,999.00'),
 
   weeklyRateCents: z.coerce
     .number({ invalid_type_error: 'Weekly rate must be a number' })
-    .int('Weekly rate must be a whole number')
+    .positive('Weekly rate must be greater than 0')
     .min(0, 'Weekly rate cannot be negative')
     .optional()
     .nullable(),
 
   monthlyRateCents: z.coerce
     .number({ invalid_type_error: 'Monthly rate must be a number' })
-    .int('Monthly rate must be a whole number')
+    .positive('Monthly rate must be greater than 0')
     .min(0, 'Monthly rate cannot be negative')
     .optional()
     .nullable(),
@@ -154,10 +154,10 @@ export function formDataToApiFormat(data: VehicleFormData) {
 export function apiFormatToFormData(vehicle: any): Partial<VehicleFormData> {
   return {
     ...vehicle,
-    // Keep cents as-is for the form (input will show dollars)
-    dailyRateCents: vehicle.dailyRateCents,
-    weeklyRateCents: vehicle.weeklyRateCents,
-    monthlyRateCents: vehicle.monthlyRateCents,
+    // Convert cents to dollars for form input
+    dailyRateCents: vehicle.dailyRateCents / 100,
+    weeklyRateCents: vehicle.weeklyRateCents ? vehicle.weeklyRateCents / 100 : null,
+    monthlyRateCents: vehicle.monthlyRateCents ? vehicle.monthlyRateCents / 100 : null,
   };
 }
 

@@ -297,35 +297,37 @@ export function VehicleForm({
           {/* Daily Rate */}
           <div>
             <Label htmlFor="dailyRateCents" required>
-              Daily Rate (in cents)
+              Daily Rate
             </Label>
             <Input
               id="dailyRateCents"
               type="number"
+              step="0.01"
               {...register('dailyRateCents')}
               error={!!errors.dailyRateCents}
-              placeholder="4500 (for $45.00)"
+              placeholder="45.00"
               disabled={isLoading}
             />
             {errors.dailyRateCents && (
               <FormError>{errors.dailyRateCents.message}</FormError>
             )}
             <p className="text-xs text-neutral-500 mt-1">
-              Enter amount in cents (e.g., 4500 = $45.00)
+              Enter amount in dollars (e.g., 45.00 for $45/day)
             </p>
           </div>
 
           {/* Weekly Rate */}
           <div>
             <Label htmlFor="weeklyRateCents" optional>
-              Weekly Rate (in cents)
+              Weekly Rate
             </Label>
             <Input
               id="weeklyRateCents"
               type="number"
+              step="0.01"
               {...register('weeklyRateCents')}
               error={!!errors.weeklyRateCents}
-              placeholder="25000 (for $250.00)"
+              placeholder="250.00"
               disabled={isLoading}
             />
             {errors.weeklyRateCents && (
@@ -336,14 +338,15 @@ export function VehicleForm({
           {/* Monthly Rate */}
           <div>
             <Label htmlFor="monthlyRateCents" optional>
-              Monthly Rate (in cents)
+              Monthly Rate
             </Label>
             <Input
               id="monthlyRateCents"
               type="number"
+              step="0.01"
               {...register('monthlyRateCents')}
               error={!!errors.monthlyRateCents}
-              placeholder="90000 (for $900.00)"
+              placeholder="900.00"
               disabled={isLoading}
             />
             {errors.monthlyRateCents && (

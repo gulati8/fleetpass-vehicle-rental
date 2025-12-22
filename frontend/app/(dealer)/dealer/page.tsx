@@ -25,6 +25,10 @@ export default function DealerDashboard() {
     }
   };
 
+  const handleVehicleManagement = () => {
+    router.push('/vehicles');
+  };
+
   if (meQuery.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -73,7 +77,10 @@ export default function DealerDashboard() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-lg shadow">
+              <div
+                onClick={handleVehicleManagement}
+                className="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg hover:bg-gray-50 transition-all duration-200"
+              >
                 <h3 className="font-semibold text-lg mb-2">Vehicle Management</h3>
                 <p className="text-gray-600 text-sm">Add, edit, and manage your vehicle inventory</p>
               </div>
