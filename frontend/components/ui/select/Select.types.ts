@@ -36,7 +36,7 @@ export interface SelectOption {
 export interface SelectProps
   extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'>,
     VariantProps<typeof selectVariants> {
-  error?: boolean;
+  error?: boolean | string;
   options: SelectOption[];
   placeholder?: string;
 }

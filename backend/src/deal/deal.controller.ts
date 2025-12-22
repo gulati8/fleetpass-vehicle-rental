@@ -8,21 +8,14 @@ import {
   Delete,
   UseGuards,
   Query,
-  Request,
 } from '@nestjs/common';
 import { DealService } from './deal.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { DealQueryDto } from './dto/deal-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    sub: string;
-    email: string;
-    organizationId: string;
-  };
-}
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { User } from '@prisma/client';
 
 @Controller('deals')
 @UseGuards(JwtAuthGuard)
@@ -30,37 +23,52 @@ export class DealController {
   constructor(private readonly dealService: DealService) {}
 
   @Post()
-  create(@Request() req: AuthenticatedRequest, @Body() createDealDto: CreateDealDto) {
-    return this.dealService.create(createDealDto, req.user.sub);
+  create(
+    @CurrentUser() user: User,
+    @Body() createDealDto: CreateDealDto,
+  ) {
+    return this.dealService.create(
+      createDealDto,
+      user.id,
+      user.organizationId,
+    );
   }
 
   @Get()
-  findAll(@Query() query: DealQueryDto) {
-    return this.dealService.findAll(query);
+  findAll(@Query() query: DealQueryDto, @CurrentUser() user: User) {
+    return this.dealService.findAll(query, user.organizationId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.dealService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.dealService.findOne(id, user.organizationId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDealDto: UpdateDealDto) {
-    return this.dealService.update(id, updateDealDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateDealDto: UpdateDealDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.dealService.update(
+      id,
+      updateDealDto,
+      user.organizationId,
+    );
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.dealService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.dealService.remove(id, user.organizationId);
   }
 
   @Post(':id/win')
-  win(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
-    return this.dealService.win(id, req.user.sub);
+  win(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.dealService.win(id, user.id, user.organizationId);
   }
 
   @Post(':id/lose')
-  lose(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
-    return this.dealService.lose(id, req.user.sub);
+  lose(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.dealService.lose(id, user.id, user.organizationId);
   }
 }

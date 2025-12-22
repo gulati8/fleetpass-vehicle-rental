@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -9,6 +10,7 @@ import { RedisModule } from './redis/redis.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { IdempotencyInterceptor } from './common/interceptors/idempotency.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LocationModule } from './location/location.module';
@@ -68,6 +70,10 @@ import { HealthModule } from './health/health.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     // Exception filters (order matters: most specific first)
     {
       provide: APP_FILTER,
@@ -80,11 +86,15 @@ import { HealthModule } from './health/health.module';
     // Interceptors (order matters: executed in order of registration)
     {
       provide: APP_INTERCEPTOR,
-      useClass: LoggingInterceptor, // First: logs request/response
+      useClass: IdempotencyInterceptor, // First: handles idempotency
     },
     {
       provide: APP_INTERCEPTOR,
-      useClass: ResponseInterceptor, // Second: wraps response in standard format
+      useClass: LoggingInterceptor, // Second: logs request/response
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor, // Third: wraps response in standard format
     },
   ],
 })

@@ -15,6 +15,8 @@ describe('KycService', () => {
   let personaMock: PersonaMockService;
   let customerService: CustomerService;
 
+  const ORG_ID = 'org-1';
+
   const mockCustomer: any = {
     id: 'customer-123',
     email: 'test@example.com',
@@ -29,6 +31,7 @@ describe('KycService', () => {
     kycInquiryId: null,
     kycVerifiedAt: null,
     stripeCustomerId: null,
+    organizationId: ORG_ID,
     createdAt: new Date(),
     updatedAt: new Date(),
     bookings: [],
@@ -39,11 +42,20 @@ describe('KycService', () => {
     },
   };
 
+  const mockPrismaService = {
+    customer: {
+      findUnique: jest.fn(),
+    },
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KycService,
-        PrismaService,
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
         PersonaMockService,
         CustomerService,
       ],
@@ -59,11 +71,13 @@ describe('KycService', () => {
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     personaMock.clearAll();
   });
 
   describe('createInquiry', () => {
     it('should create a new KYC inquiry for customer', async () => {
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'update').mockResolvedValue({
         ...mockCustomer,
@@ -71,7 +85,7 @@ describe('KycService', () => {
         kycStatus: 'in_progress',
       });
 
-      const inquiry = await service.createInquiry(mockCustomer.id);
+      const inquiry = await service.createInquiry(mockCustomer.id, ORG_ID);
 
       expect(inquiry.id).toMatch(/^inq_mock_/);
       expect(inquiry.attributes.reference_id).toBe(mockCustomer.id);
@@ -81,18 +95,20 @@ describe('KycService', () => {
           kycInquiryId: expect.any(String),
           kycStatus: 'in_progress',
         }),
+        ORG_ID,
       );
     });
 
     it('should throw ConflictException if customer already verified', async () => {
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue({
         ...mockCustomer,
         kycStatus: 'approved',
       });
 
-      await expect(service.createInquiry(mockCustomer.id)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.createInquiry(mockCustomer.id, ORG_ID),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('should return existing inquiry if already in progress', async () => {
@@ -100,6 +116,7 @@ describe('KycService', () => {
       const updateSpy = jest.spyOn(customerService, 'update');
 
       const existingInquiryId = 'inq_mock_existing';
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue({
         ...mockCustomer,
         kycInquiryId: existingInquiryId,
@@ -114,20 +131,21 @@ describe('KycService', () => {
       (existingInquiry as any).id = existingInquiryId;
       personaMock['inquiries'].set(existingInquiryId, existingInquiry);
 
-      const inquiry = await service.createInquiry(mockCustomer.id);
+      const inquiry = await service.createInquiry(mockCustomer.id, ORG_ID);
 
       expect(inquiry.id).toBe(existingInquiryId);
       expect(updateSpy).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if customer not found', async () => {
+      mockPrismaService.customer.findUnique.mockResolvedValue(null);
       jest
         .spyOn(customerService, 'findOne')
         .mockRejectedValue(new NotFoundException());
 
-      await expect(service.createInquiry('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.createInquiry('nonexistent', ORG_ID),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -137,18 +155,19 @@ describe('KycService', () => {
         reference_id: mockCustomer.id,
       });
 
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
 
-      const retrieved = await service.getInquiry(inquiry.id);
+      const retrieved = await service.getInquiry(inquiry.id, ORG_ID);
 
       expect(retrieved.id).toBe(inquiry.id);
       expect(retrieved.attributes.reference_id).toBe(mockCustomer.id);
     });
 
     it('should throw NotFoundException for non-existent inquiry', async () => {
-      await expect(service.getInquiry('inq_mock_nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getInquiry('inq_mock_nonexistent', ORG_ID),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -159,16 +178,21 @@ describe('KycService', () => {
       inquiry = await personaMock.createInquiry({
         reference_id: mockCustomer.id,
       });
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
     });
 
     it('should submit government ID successfully', async () => {
-      const verification = await service.submitGovernmentId(inquiry.id, {
-        front_photo: 'base64-front',
-        back_photo: 'base64-back',
-        country: 'US',
-        id_class: 'dl',
-      });
+      const verification = await service.submitGovernmentId(
+        inquiry.id,
+        {
+          front_photo: 'base64-front',
+          back_photo: 'base64-back',
+          country: 'US',
+          id_class: 'dl',
+        },
+        ORG_ID,
+      );
 
       expect(verification.id).toMatch(/^ver_gov_id_/);
       expect(verification.type).toBe('verification/government-id');
@@ -179,11 +203,15 @@ describe('KycService', () => {
       await personaMock.updateInquiryStatus(inquiry.id, 'completed');
 
       await expect(
-        service.submitGovernmentId(inquiry.id, {
-          front_photo: 'base64-front',
-          country: 'US',
-          id_class: 'dl',
-        }),
+        service.submitGovernmentId(
+          inquiry.id,
+          {
+            front_photo: 'base64-front',
+            country: 'US',
+            id_class: 'dl',
+          },
+          ORG_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -191,11 +219,15 @@ describe('KycService', () => {
       await personaMock.updateInquiryStatus(inquiry.id, 'failed');
 
       await expect(
-        service.submitGovernmentId(inquiry.id, {
-          front_photo: 'base64-front',
-          country: 'US',
-          id_class: 'dl',
-        }),
+        service.submitGovernmentId(
+          inquiry.id,
+          {
+            front_photo: 'base64-front',
+            country: 'US',
+            id_class: 'dl',
+          },
+          ORG_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -213,11 +245,15 @@ describe('KycService', () => {
         'processAutomaticVerification',
       );
 
-      await service.submitGovernmentId(inquiry.id, {
-        front_photo: 'base64-front',
-        country: 'US',
-        id_class: 'dl',
-      });
+      await service.submitGovernmentId(
+        inquiry.id,
+        {
+          front_photo: 'base64-front',
+          country: 'US',
+          id_class: 'dl',
+        },
+        ORG_ID,
+      );
 
       expect(processAutoSpy).toHaveBeenCalledWith(
         inquiry.id,
@@ -233,13 +269,18 @@ describe('KycService', () => {
       inquiry = await personaMock.createInquiry({
         reference_id: mockCustomer.id,
       });
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
     });
 
     it('should submit selfie successfully', async () => {
-      const verification = await service.submitSelfie(inquiry.id, {
-        image: 'base64-selfie',
-      });
+      const verification = await service.submitSelfie(
+        inquiry.id,
+        {
+          image: 'base64-selfie',
+        },
+        ORG_ID,
+      );
 
       expect(verification.id).toMatch(/^ver_selfie_/);
       expect(verification.type).toBe('verification/selfie');
@@ -250,7 +291,7 @@ describe('KycService', () => {
       await personaMock.updateInquiryStatus(inquiry.id, 'completed');
 
       await expect(
-        service.submitSelfie(inquiry.id, { image: 'base64-selfie' }),
+        service.submitSelfie(inquiry.id, { image: 'base64-selfie' }, ORG_ID),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -260,9 +301,10 @@ describe('KycService', () => {
       const inquiry = await personaMock.createInquiry({
         reference_id: mockCustomer.id,
       });
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
 
-      const approved = await service.approveInquiry(inquiry.id);
+      const approved = await service.approveInquiry(inquiry.id, ORG_ID);
 
       expect(approved.attributes.status).toBe('completed');
       expect(approved.attributes.completed_at).toBeDefined();
@@ -270,7 +312,7 @@ describe('KycService', () => {
 
     it('should throw NotFoundException for non-existent inquiry', async () => {
       await expect(
-        service.approveInquiry('inq_mock_nonexistent'),
+        service.approveInquiry('inq_mock_nonexistent', ORG_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -280,11 +322,13 @@ describe('KycService', () => {
       const inquiry = await personaMock.createInquiry({
         reference_id: mockCustomer.id,
       });
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
 
       const declined = await service.declineInquiry(
         inquiry.id,
         'Invalid document',
+        ORG_ID,
       );
 
       expect(declined.attributes.status).toBe('failed');
@@ -293,7 +337,7 @@ describe('KycService', () => {
 
     it('should throw NotFoundException for non-existent inquiry', async () => {
       await expect(
-        service.declineInquiry('inq_mock_nonexistent', 'Test reason'),
+        service.declineInquiry('inq_mock_nonexistent', 'Test reason', ORG_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -304,6 +348,7 @@ describe('KycService', () => {
         reference_id: mockCustomer.id,
       });
 
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
       const updateSpy = jest
         .spyOn(customerService, 'update')
@@ -325,6 +370,7 @@ describe('KycService', () => {
           kycStatus: 'approved',
           kycVerifiedAt: expect.any(Date),
         }),
+        ORG_ID,
       );
     }, 10000);
 
@@ -333,6 +379,7 @@ describe('KycService', () => {
         reference_id: mockCustomer.id,
       });
 
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
       const updateSpy = jest
         .spyOn(customerService, 'update')
@@ -352,6 +399,7 @@ describe('KycService', () => {
         expect.objectContaining({
           kycStatus: 'rejected',
         }),
+        ORG_ID,
       );
     }, 10000);
 
@@ -360,6 +408,7 @@ describe('KycService', () => {
         reference_id: mockCustomer.id,
       });
 
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
       const updateSpy = jest
         .spyOn(customerService, 'update')
@@ -381,6 +430,7 @@ describe('KycService', () => {
           kycStatus: 'pending',
           kycInquiryId: null,
         }),
+        ORG_ID,
       );
     });
 
@@ -389,6 +439,7 @@ describe('KycService', () => {
         reference_id: mockCustomer.id,
       });
 
+      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
       jest.spyOn(customerService, 'findOne').mockResolvedValue(mockCustomer);
       const updateSpy = jest
         .spyOn(customerService, 'update')
@@ -409,6 +460,7 @@ describe('KycService', () => {
           dateOfBirth: expect.any(Date),
           driverLicenseNumber: 'D1234560000',
         }),
+        ORG_ID,
       );
     }, 10000);
   });

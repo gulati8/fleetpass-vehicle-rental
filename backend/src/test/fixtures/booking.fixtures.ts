@@ -2,6 +2,7 @@ import { Booking, Customer, Vehicle, Location } from '@prisma/client';
 
 export const mockCustomer: Customer = {
   id: 'customer-1',
+  organizationId: 'org-1',
   firstName: 'John',
   lastName: 'Doe',
   email: 'john.doe@example.com',
@@ -63,6 +64,7 @@ export const mockVehicle: Vehicle = {
 
 export const mockBooking: Booking = {
   id: 'booking-1',
+  organizationId: 'org-1',
   bookingNumber: 'BP-2024-001',
   customerId: 'customer-1',
   vehicleId: 'vehicle-1',

@@ -19,6 +19,7 @@ import {
 } from '../test/fixtures/booking.fixtures';
 
 const request = require('supertest');
+const ORG_ID = 'org-1';
 
 describe('BookingController (Integration)', () => {
   let app: INestApplication;
@@ -54,7 +55,7 @@ describe('BookingController (Integration)', () => {
             id: 'user-123',
             email: 'user@test.com',
             role: 'admin',
-            organizationId: 'org-1',
+            organizationId: ORG_ID,
           };
           return true;
         }),
@@ -108,7 +109,7 @@ describe('BookingController (Integration)', () => {
 
       expect(response.body.data).toBeDefined();
       expect(response.body.data.bookingNumber).toBeDefined();
-      expect(bookingService.create).toHaveBeenCalledWith(createDto);
+      expect(bookingService.create).toHaveBeenCalledWith(createDto, ORG_ID);
     });
 
     it('should validate required fields', async () => {
@@ -173,6 +174,7 @@ describe('BookingController (Integration)', () => {
 
       expect(bookingService.findAll).toHaveBeenCalledWith(
         expect.objectContaining({ customerId: 'customer-1' }),
+        ORG_ID,
       );
     });
 
@@ -191,6 +193,7 @@ describe('BookingController (Integration)', () => {
 
       expect(bookingService.findAll).toHaveBeenCalledWith(
         expect.objectContaining({ page: 2, limit: 20 }),
+        ORG_ID,
       );
     });
   });
@@ -249,6 +252,7 @@ describe('BookingController (Integration)', () => {
       expect(bookingService.update).toHaveBeenCalledWith(
         'booking-1',
         updateDto,
+        ORG_ID,
       );
     });
 
@@ -277,7 +281,7 @@ describe('BookingController (Integration)', () => {
         .expect(200);
 
       expect(response.body.data.message).toBe('Booking cancelled successfully');
-      expect(bookingService.remove).toHaveBeenCalledWith('booking-1');
+      expect(bookingService.remove).toHaveBeenCalledWith('booking-1', ORG_ID);
     });
   });
 
@@ -296,7 +300,7 @@ describe('BookingController (Integration)', () => {
         .expect(201);
 
       expect(response.body.data.status).toBe('confirmed');
-      expect(bookingService.confirm).toHaveBeenCalledWith('booking-1');
+      expect(bookingService.confirm).toHaveBeenCalledWith('booking-1', ORG_ID);
     });
   });
 
@@ -315,7 +319,7 @@ describe('BookingController (Integration)', () => {
         .expect(201);
 
       expect(response.body.data.status).toBe('active');
-      expect(bookingService.activate).toHaveBeenCalledWith('booking-1');
+      expect(bookingService.activate).toHaveBeenCalledWith('booking-1', ORG_ID);
     });
   });
 
@@ -334,7 +338,7 @@ describe('BookingController (Integration)', () => {
         .expect(201);
 
       expect(response.body.data.status).toBe('completed');
-      expect(bookingService.complete).toHaveBeenCalledWith('booking-1');
+      expect(bookingService.complete).toHaveBeenCalledWith('booking-1', ORG_ID);
     });
   });
 
@@ -349,7 +353,7 @@ describe('BookingController (Integration)', () => {
         .expect(201);
 
       expect(response.body.data.message).toBe('Booking cancelled successfully');
-      expect(bookingService.cancel).toHaveBeenCalledWith('booking-1');
+      expect(bookingService.cancel).toHaveBeenCalledWith('booking-1', ORG_ID);
     });
   });
 });

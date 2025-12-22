@@ -254,7 +254,7 @@ docker-compose -f docker-compose.prod.yml exec backend npm run seed
 
 ```bash
 # Check service health
-curl http://localhost:3001/health
+curl http://localhost:3001/api/v1/health
 
 # Expected response:
 # {
@@ -381,7 +381,7 @@ server {
 
     # Health check endpoint (bypass rate limiting)
     location /health {
-        proxy_pass http://localhost:3001/health;
+        proxy_pass http://localhost:3001/api/v1/health;
         access_log off;
     }
 }
@@ -505,16 +505,16 @@ docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
 
 FleetPass provides three health check endpoints:
 
-1. **General Health**: `GET /health`
+1. **General Health**: `GET /api/v1/health`
    - Returns overall system status
    - Checks database and Redis connectivity
    - Includes performance metrics
 
-2. **Liveness Probe**: `GET /health/live`
+2. **Liveness Probe**: `GET /api/v1/health/live`
    - Checks if application is running
    - Used by orchestrators to restart unhealthy containers
 
-3. **Readiness Probe**: `GET /health/ready`
+3. **Readiness Probe**: `GET /api/v1/health/ready`
    - Checks if application is ready to serve traffic
    - Used by load balancers for traffic routing
 
@@ -527,7 +527,7 @@ Use services like:
 - **Pingdom**
 - **StatusCake**
 
-Configure to monitor: `https://api.fleetpass.example.com/health`
+Configure to monitor: `https://api.fleetpass.example.com/api/v1/health`
 
 #### Option 2: Sentry (Error Tracking)
 
@@ -839,7 +839,7 @@ docker-compose -f docker-compose.prod.yml up -d
 docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
 
 # Verify health
-curl https://api.fleetpass.example.com/health
+curl https://api.fleetpass.example.com/api/v1/health
 ```
 
 ### Restart Services

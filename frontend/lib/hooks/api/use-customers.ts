@@ -5,48 +5,47 @@ import { queryKeys } from './query-keys';
 // Types
 interface Customer {
   id: string;
-  userId: string;
-  phone: string;
-  dateOfBirth: string;
-  address: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  licenseNumber: string;
-  licenseState: string;
-  licenseExpiry: string;
-  kycStatus: 'PENDING' | 'VERIFIED' | 'FAILED';
-  kycDetails?: any;
+  email: string;
+  phone: string | null;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string | null;
+  driverLicenseNumber: string | null;
+  driverLicenseState: string | null;
+  driverLicenseExpiry: string | null;
+  kycStatus: string;
+  kycInquiryId: string | null;
+  kycVerifiedAt: string | null;
+  stripeCustomerId: string | null;
   createdAt: string;
   updatedAt: string;
-  user?: {
-    email: string;
-    fullName: string;
-  };
 }
 
 interface CustomerFilters {
-  kycStatus?: string;
-  city?: string;
-  state?: string;
   search?: string;
+  kycStatus?: 'pending' | 'in_progress' | 'approved' | 'rejected';
+  page?: number;
+  limit?: number;
+  sortBy?: 'createdAt' | 'firstName' | 'lastName' | 'email';
+  sortOrder?: 'asc' | 'desc';
 }
 
 interface CreateCustomerData {
+  firstName: string;
+  lastName: string;
+  email: string;
   phone: string;
-  dateOfBirth: string;
-  address: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  licenseNumber: string;
-  licenseState: string;
-  licenseExpiry: string;
+  dateOfBirth?: string;
+  driverLicenseNumber?: string;
+  driverLicenseState?: string;
+  driverLicenseExpiry?: string;
 }
 
 interface UpdateCustomerData extends Partial<CreateCustomerData> {
   id: string;
-  kycStatus?: 'PENDING' | 'VERIFIED' | 'FAILED';
+  kycStatus?: 'pending' | 'in_progress' | 'approved' | 'rejected';
+  kycVerifiedAt?: string;
+  kycInquiryId?: string;
 }
 
 // Query: Get All Customers (with filters)

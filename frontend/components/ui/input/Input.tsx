@@ -16,7 +16,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     ref
   ) => {
     const hasAddons = leftAddon || rightAddon;
-    const effectiveVariant = error ? 'error' : variant;
+    const hasError = Boolean(error);
+    const effectiveVariant = hasError ? 'error' : variant;
 
     const inputClasses = cn(
       inputVariants({ variant: effectiveVariant, size }),

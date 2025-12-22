@@ -247,7 +247,7 @@ Validation errors are automatically caught and formatted by HttpExceptionFilter.
 
 ```bash
 # Success response
-curl http://localhost:3000/health
+curl http://localhost:3000/api/health
 
 # Expected:
 # {

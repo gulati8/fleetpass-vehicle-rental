@@ -30,7 +30,7 @@ export const inputVariants = cva(
 export interface InputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>,
     VariantProps<typeof inputVariants> {
-  error?: boolean;
+  error?: boolean | string;
   leftAddon?: React.ReactNode;
   rightAddon?: React.ReactNode;
 }

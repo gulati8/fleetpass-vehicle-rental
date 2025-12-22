@@ -28,6 +28,24 @@ const apiClient = axios.create({
 });
 
 /**
+ * Request interceptor: Automatically add Idempotency-Key to all mutation requests
+ */
+apiClient.interceptors.request.use((config) => {
+  const mutationMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+  const method = config.method?.toUpperCase();
+
+  // Add idempotency key for all state-changing requests
+  if (method && mutationMethods.includes(method)) {
+    // Only generate if not already provided
+    if (!config.headers['Idempotency-Key']) {
+      config.headers['Idempotency-Key'] = crypto.randomUUID();
+    }
+  }
+
+  return config;
+});
+
+/**
  * Response interceptor for error handling
  */
 apiClient.interceptors.response.use(

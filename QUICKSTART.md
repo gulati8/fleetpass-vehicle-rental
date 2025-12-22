@@ -36,13 +36,13 @@ docker-compose logs -f
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:3001
-- **API Health**: http://localhost:3001/health
+- **API Health**: http://localhost:3001/api/v1/health
 
 ### 4. Test API
 
 ```bash
 # Check health
-curl http://localhost:3001/health
+curl http://localhost:3001/api/v1/health
 
 # Expected response:
 # {

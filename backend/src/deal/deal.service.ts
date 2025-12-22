@@ -15,7 +15,51 @@ export class DealService {
 
   constructor(private prisma: PrismaService) {}
 
-  async create(createDealDto: CreateDealDto, closedById?: string) {
+  private async getScopedDeal(id: string, organizationId: string) {
+    const deal = await this.prisma.deal.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        lead: {
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+        closedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!deal || deal.organizationId !== organizationId) {
+      this.logger.warn('Deal not found or unauthorized', {
+        dealId: id,
+        organizationId,
+      });
+      throw new NotFoundException(`Deal with ID ${id} not found`);
+    }
+
+    return deal;
+  }
+
+  async create(
+    createDealDto: CreateDealDto,
+    closedById: string,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Creating new deal', {
       customerId: createDealDto.customerId,
       vehicleId: createDealDto.vehicleId,
@@ -23,8 +67,11 @@ export class DealService {
 
     try {
       // Validate customer exists
-      const customer = await this.prisma.customer.findUnique({
-        where: { id: createDealDto.customerId },
+      const customer = await this.prisma.customer.findFirst({
+        where: {
+          id: createDealDto.customerId,
+          organizationId,
+        },
       });
 
       if (!customer) {
@@ -35,8 +82,11 @@ export class DealService {
       }
 
       // Validate vehicle exists
-      const vehicle = await this.prisma.vehicle.findUnique({
-        where: { id: createDealDto.vehicleId },
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: {
+          id: createDealDto.vehicleId,
+          location: { organizationId },
+        },
       });
 
       if (!vehicle) {
@@ -48,8 +98,8 @@ export class DealService {
 
       // Validate lead exists if provided
       if (createDealDto.leadId) {
-        const lead = await this.prisma.lead.findUnique({
-          where: { id: createDealDto.leadId },
+        const lead = await this.prisma.lead.findFirst({
+          where: { id: createDealDto.leadId, organizationId },
         });
 
         if (!lead) {
@@ -68,6 +118,8 @@ export class DealService {
           dealValueCents: createDealDto.dealValueCents,
           notes: createDealDto.notes,
           status: 'pending',
+          organizationId,
+          closedById,
         },
         include: {
           customer: {
@@ -107,7 +159,7 @@ export class DealService {
     }
   }
 
-  async findAll(query: DealQueryDto) {
+  async findAll(query: DealQueryDto, organizationId: string) {
     const {
       search,
       status,
@@ -122,7 +174,7 @@ export class DealService {
 
     try {
       // Build where clause
-      const where: any = {};
+      const where: any = { organizationId };
 
       // Search filter (customer name, email)
       if (search) {
@@ -224,42 +276,11 @@ export class DealService {
     }
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, organizationId: string) {
     this.logger.logWithFields('debug', 'Finding deal by ID', { dealId: id });
 
     try {
-      const deal = await this.prisma.deal.findUnique({
-        where: { id },
-        include: {
-          customer: true,
-          lead: {
-            include: {
-              assignedTo: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          closedBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-      });
-
-      if (!deal) {
-        this.logger.warn('Deal not found', { dealId: id });
-        throw new NotFoundException(`Deal with ID ${id} not found`);
-      }
+      const deal = await this.getScopedDeal(id, organizationId);
 
       this.logger.logWithFields('debug', 'Deal retrieved', { dealId: id });
 
@@ -273,12 +294,16 @@ export class DealService {
     }
   }
 
-  async update(id: string, updateDealDto: UpdateDealDto) {
+  async update(
+    id: string,
+    updateDealDto: UpdateDealDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Updating deal', { dealId: id });
 
     try {
       // Verify deal exists
-      const existingDeal = await this.findOne(id);
+      const existingDeal = await this.getScopedDeal(id, organizationId);
 
       // Validate status transitions
       if (updateDealDto.status) {
@@ -287,8 +312,8 @@ export class DealService {
 
       // If customer is being changed, validate
       if (updateDealDto.customerId) {
-        const customer = await this.prisma.customer.findUnique({
-          where: { id: updateDealDto.customerId },
+        const customer = await this.prisma.customer.findFirst({
+          where: { id: updateDealDto.customerId, organizationId },
         });
 
         if (!customer) {
@@ -298,8 +323,11 @@ export class DealService {
 
       // If vehicle is being changed, validate
       if (updateDealDto.vehicleId) {
-        const vehicle = await this.prisma.vehicle.findUnique({
-          where: { id: updateDealDto.vehicleId },
+        const vehicle = await this.prisma.vehicle.findFirst({
+          where: {
+            id: updateDealDto.vehicleId,
+            location: { organizationId },
+          },
         });
 
         if (!vehicle) {
@@ -309,8 +337,8 @@ export class DealService {
 
       // If lead is being changed, validate
       if (updateDealDto.leadId) {
-        const lead = await this.prisma.lead.findUnique({
-          where: { id: updateDealDto.leadId },
+        const lead = await this.prisma.lead.findFirst({
+          where: { id: updateDealDto.leadId, organizationId },
         });
 
         if (!lead) {
@@ -372,12 +400,12 @@ export class DealService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, organizationId: string) {
     this.logger.logWithFields('info', 'Deleting deal', { dealId: id });
 
     try {
       // Verify deal exists
-      await this.findOne(id);
+      await this.getScopedDeal(id, organizationId);
 
       await this.prisma.deal.delete({
         where: { id },
@@ -399,11 +427,11 @@ export class DealService {
     }
   }
 
-  async win(id: string, closedById?: string) {
+  async win(id: string, closedById: string, organizationId: string) {
     this.logger.logWithFields('info', 'Marking deal as won', { dealId: id });
 
     try {
-      const deal = await this.findOne(id);
+      const deal = await this.getScopedDeal(id, organizationId);
 
       if (deal.status !== 'pending') {
         throw new BadRequestException(
@@ -451,11 +479,11 @@ export class DealService {
     }
   }
 
-  async lose(id: string, closedById?: string) {
+  async lose(id: string, closedById: string, organizationId: string) {
     this.logger.logWithFields('info', 'Marking deal as lost', { dealId: id });
 
     try {
-      const deal = await this.findOne(id);
+      const deal = await this.getScopedDeal(id, organizationId);
 
       if (deal.status !== 'pending') {
         throw new BadRequestException(

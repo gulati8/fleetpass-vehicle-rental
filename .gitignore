@@ -54,3 +54,12 @@ prisma/migrations/
 # Misc
 .turbo
 *.tsbuildinfo
+
+# CommandDeck orchestrator system
+.claude
+.claude.*
+CLAUDE.md
+
+# CommandDeck orchestrator system
+.claude/
+tmp/

@@ -18,6 +18,7 @@ import {
 describe('CustomerService', () => {
   let service: CustomerService;
   let prismaService: ReturnType<typeof mockPrismaService>;
+  const ORG_ID = 'org-1';
 
   beforeEach(async () => {
     // Create mocks
@@ -51,12 +52,17 @@ describe('CustomerService', () => {
       prismaService.customer.create.mockResolvedValue(expectedCustomer);
 
       // Act
-      const result = await service.create(dto);
+      const result = await service.create(dto, ORG_ID);
 
       // Assert
       expect(result).toEqual(expectedCustomer);
       expect(prismaService.customer.findUnique).toHaveBeenCalledWith({
-        where: { email: dto.email },
+        where: {
+          organizationId_email: {
+            organizationId: ORG_ID,
+            email: dto.email,
+          },
+        },
       });
       expect(prismaService.customer.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -78,8 +84,8 @@ describe('CustomerService', () => {
       prismaService.customer.findUnique.mockResolvedValue(existingCustomer);
 
       // Act & Assert
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
-      await expect(service.create(dto)).rejects.toThrow(
+      await expect(service.create(dto, ORG_ID)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, ORG_ID)).rejects.toThrow(
         `Customer with email ${dto.email} already exists`,
       );
       expect(prismaService.customer.create).not.toHaveBeenCalled();
@@ -106,7 +112,7 @@ describe('CustomerService', () => {
       prismaService.customer.create.mockResolvedValue(expectedCustomer);
 
       // Act
-      const result = await service.create(dto);
+      const result = await service.create(dto, ORG_ID);
 
       // Assert
       expect(result).toEqual(expectedCustomer);
@@ -124,7 +130,7 @@ describe('CustomerService', () => {
       prismaService.customer.create.mockResolvedValue(expectedCustomer);
 
       // Act
-      await service.create(dto);
+      await service.create(dto, ORG_ID);
 
       // Assert
       expect(prismaService.customer.create).toHaveBeenCalledWith({
@@ -149,7 +155,7 @@ describe('CustomerService', () => {
       prismaService.$transaction.mockResolvedValue([customers, total]);
 
       // Act
-      const result = await service.findAll(query);
+      const result = await service.findAll(query, ORG_ID);
 
       // Assert
       expect(result).toEqual({
@@ -170,7 +176,7 @@ describe('CustomerService', () => {
       prismaService.$transaction.mockResolvedValue([customers, 1]);
 
       // Act
-      const result = await service.findAll(query);
+      const result = await service.findAll(query, ORG_ID);
 
       // Assert
       expect(result.items).toEqual(customers);
@@ -189,7 +195,7 @@ describe('CustomerService', () => {
       prismaService.$transaction.mockResolvedValue([customers, 1]);
 
       // Act
-      const result = await service.findAll(query);
+      const result = await service.findAll(query, ORG_ID);
 
       // Assert
       expect(result.items).toEqual(customers);
@@ -207,7 +213,7 @@ describe('CustomerService', () => {
       prismaService.$transaction.mockResolvedValue([customers, 1]);
 
       // Act
-      const result = await service.findAll(query);
+      const result = await service.findAll(query, ORG_ID);
 
       // Assert
       expect(result.items).toEqual(customers);
@@ -222,7 +228,7 @@ describe('CustomerService', () => {
       prismaService.$transaction.mockResolvedValue([customers, 15]);
 
       // Act
-      const result = await service.findAll(query);
+      const result = await service.findAll(query, ORG_ID);
 
       // Assert
       expect(result.page).toBe(2);
@@ -239,7 +245,7 @@ describe('CustomerService', () => {
       prismaService.$transaction.mockResolvedValue([customers, 1]);
 
       // Act
-      const result = await service.findAll(query);
+      const result = await service.findAll(query, ORG_ID);
 
       // Assert
       expect(result.items).toEqual(customers);
@@ -251,12 +257,15 @@ describe('CustomerService', () => {
     it('should return customer by ID with bookings', async () => {
       // Arrange
       const customerId = 'customer-123';
-      const expectedCustomer = createTestCustomerWithBookings();
+      const expectedCustomer = {
+        ...createTestCustomerWithBookings(),
+        organizationId: ORG_ID,
+      };
 
       prismaService.customer.findUnique.mockResolvedValue(expectedCustomer);
 
       // Act
-      const result = await service.findOne(customerId);
+      const result = await service.findOne(customerId, ORG_ID);
 
       // Assert
       expect(result).toEqual(expectedCustomer);
@@ -296,10 +305,10 @@ describe('CustomerService', () => {
       prismaService.customer.findUnique.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findOne(customerId)).rejects.toThrow(
+      await expect(service.findOne(customerId, ORG_ID)).rejects.toThrow(
         NotFoundException,
       );
-      await expect(service.findOne(customerId)).rejects.toThrow(
+      await expect(service.findOne(customerId, ORG_ID)).rejects.toThrow(
         `Customer with ID ${customerId} not found`,
       );
     });
@@ -313,7 +322,10 @@ describe('CustomerService', () => {
         firstName: 'Jane',
         phone: '+14155559999',
       };
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
       const updatedCustomer = createTestCustomer({
         ...existingCustomer,
         ...updateDto,
@@ -325,7 +337,7 @@ describe('CustomerService', () => {
       prismaService.customer.update.mockResolvedValue(updatedCustomer);
 
       // Act
-      const result = await service.update(customerId, updateDto);
+      const result = await service.update(customerId, updateDto, ORG_ID);
 
       // Assert
       expect(result).toEqual(updatedCustomer);
@@ -352,7 +364,7 @@ describe('CustomerService', () => {
       prismaService.customer.findUnique.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.update(customerId, updateDto)).rejects.toThrow(
+      await expect(service.update(customerId, updateDto, ORG_ID)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -361,7 +373,10 @@ describe('CustomerService', () => {
       // Arrange
       const customerId = 'customer-123';
       const updateDto = { email: 'existing@example.com' };
-      const existingCustomer = createTestCustomer({ id: customerId });
+      const existingCustomer = {
+        ...createTestCustomer({ id: customerId }),
+        organizationId: ORG_ID,
+      };
       const anotherCustomer = createTestCustomer({
         id: 'customer-456',
         email: 'existing@example.com',
@@ -373,7 +388,7 @@ describe('CustomerService', () => {
         .mockResolvedValueOnce(anotherCustomer);
 
       // Act & Assert
-      await expect(service.update(customerId, updateDto)).rejects.toThrow(
+      await expect(service.update(customerId, updateDto, ORG_ID)).rejects.toThrow(
         ConflictException,
       );
       expect(prismaService.customer.findUnique).toHaveBeenCalledTimes(2);
@@ -382,7 +397,10 @@ describe('CustomerService', () => {
     it('should allow updating to same email', async () => {
       // Arrange
       const customerId = 'customer-123';
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
       const updateDto = { email: existingCustomer.email };
       const updatedCustomer = createTestCustomer();
 
@@ -392,7 +410,7 @@ describe('CustomerService', () => {
       prismaService.customer.update.mockResolvedValue(updatedCustomer);
 
       // Act
-      const result = await service.update(customerId, updateDto);
+      const result = await service.update(customerId, updateDto, ORG_ID);
 
       // Assert
       expect(result).toEqual(updatedCustomer);
@@ -405,7 +423,10 @@ describe('CustomerService', () => {
         dateOfBirth: '1991-05-20',
         driverLicenseExpiry: '2026-12-31',
       };
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
       const updatedCustomer = createTestCustomer();
 
       prismaService.customer.findUnique
@@ -414,7 +435,7 @@ describe('CustomerService', () => {
       prismaService.customer.update.mockResolvedValue(updatedCustomer);
 
       // Act
-      await service.update(customerId, updateDto);
+      await service.update(customerId, updateDto, ORG_ID);
 
       // Assert
       expect(prismaService.customer.update).toHaveBeenCalledWith({
@@ -432,14 +453,17 @@ describe('CustomerService', () => {
     it('should successfully delete a customer', async () => {
       // Arrange
       const customerId = 'customer-123';
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
 
       prismaService.customer.findUnique.mockResolvedValue(existingCustomer);
       prismaService.booking.count.mockResolvedValue(0);
       prismaService.customer.delete.mockResolvedValue(existingCustomer);
 
       // Act
-      const result = await service.remove(customerId);
+      const result = await service.remove(customerId, ORG_ID);
 
       // Assert
       expect(result).toEqual({ message: 'Customer deleted successfully' });
@@ -455,7 +479,7 @@ describe('CustomerService', () => {
       prismaService.customer.findUnique.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.remove(customerId)).rejects.toThrow(
+      await expect(service.remove(customerId, ORG_ID)).rejects.toThrow(
         NotFoundException,
       );
       expect(prismaService.customer.delete).not.toHaveBeenCalled();
@@ -464,16 +488,19 @@ describe('CustomerService', () => {
     it('should throw BadRequestException if customer has active bookings', async () => {
       // Arrange
       const customerId = 'customer-123';
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
 
       prismaService.customer.findUnique.mockResolvedValue(existingCustomer);
       prismaService.booking.count.mockResolvedValue(2);
 
       // Act & Assert
-      await expect(service.remove(customerId)).rejects.toThrow(
+      await expect(service.remove(customerId, ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
-      await expect(service.remove(customerId)).rejects.toThrow(
+      await expect(service.remove(customerId, ORG_ID)).rejects.toThrow(
         'Cannot delete customer with 2 active booking(s)',
       );
       expect(prismaService.customer.delete).not.toHaveBeenCalled();
@@ -482,14 +509,17 @@ describe('CustomerService', () => {
     it('should check for active bookings with correct statuses', async () => {
       // Arrange
       const customerId = 'customer-123';
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
 
       prismaService.customer.findUnique.mockResolvedValue(existingCustomer);
       prismaService.booking.count.mockResolvedValue(0);
       prismaService.customer.delete.mockResolvedValue(existingCustomer);
 
       // Act
-      await service.remove(customerId);
+      await service.remove(customerId, ORG_ID);
 
       // Assert
       expect(prismaService.booking.count).toHaveBeenCalledWith({
@@ -511,14 +541,17 @@ describe('CustomerService', () => {
         status: 'approved' as const,
         inquiryId: 'inq_mock123',
       };
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
       const updatedCustomer = createVerifiedCustomer();
 
       prismaService.customer.findUnique.mockResolvedValue(existingCustomer);
       prismaService.customer.update.mockResolvedValue(updatedCustomer);
 
       // Act
-      const result = await service.updateKycStatus(customerId, verifyDto);
+      const result = await service.updateKycStatus(customerId, verifyDto, ORG_ID);
 
       // Assert
       expect(result).toEqual(updatedCustomer);
@@ -548,7 +581,10 @@ describe('CustomerService', () => {
         status: 'rejected' as const,
         inquiryId: 'inq_mock456',
       };
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
       const updatedCustomer = createTestCustomer({
         kycStatus: 'rejected',
         kycInquiryId: 'inq_mock456',
@@ -558,7 +594,7 @@ describe('CustomerService', () => {
       prismaService.customer.update.mockResolvedValue(updatedCustomer);
 
       // Act
-      const result = await service.updateKycStatus(customerId, verifyDto);
+      const result = await service.updateKycStatus(customerId, verifyDto, ORG_ID);
 
       // Assert
       expect(result).toEqual(updatedCustomer);
@@ -578,14 +614,17 @@ describe('CustomerService', () => {
       const verifyDto = {
         status: 'rejected' as const,
       };
-      const existingCustomer = createTestCustomer();
+      const existingCustomer = {
+        ...createTestCustomer(),
+        organizationId: ORG_ID,
+      };
       const updatedCustomer = createTestCustomer({ kycStatus: 'rejected' });
 
       prismaService.customer.findUnique.mockResolvedValue(existingCustomer);
       prismaService.customer.update.mockResolvedValue(updatedCustomer);
 
       // Act
-      await service.updateKycStatus(customerId, verifyDto);
+      await service.updateKycStatus(customerId, verifyDto, ORG_ID);
 
       // Assert
       const updateCall = prismaService.customer.update.mock.calls[0][0];
@@ -603,7 +642,7 @@ describe('CustomerService', () => {
 
       // Act & Assert
       await expect(
-        service.updateKycStatus(customerId, verifyDto),
+        service.updateKycStatus(customerId, verifyDto, ORG_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });

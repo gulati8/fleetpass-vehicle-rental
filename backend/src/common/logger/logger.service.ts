@@ -1,4 +1,4 @@
-import { Injectable, LoggerService as NestLoggerService } from '@nestjs/common';
+import { Injectable, LoggerService as NestLoggerService, Optional, Inject } from '@nestjs/common';
 import pino, { Logger } from 'pino';
 import { getLoggerConfig } from '../../config/logger.config';
 
@@ -6,7 +6,7 @@ import { getLoggerConfig } from '../../config/logger.config';
 export class LoggerService implements NestLoggerService {
   private logger: Logger;
 
-  constructor(context?: string) {
+  constructor(@Optional() @Inject('LOGGER_CONTEXT') context?: string) {
     this.logger = pino(getLoggerConfig());
     if (context) {
       this.logger = this.logger.child({ context });

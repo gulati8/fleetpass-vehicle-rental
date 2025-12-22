@@ -8,6 +8,7 @@ import { CustomerQueryDto } from '../../customer/dto/customer-query.dto';
 export function createTestCustomer(overrides?: Partial<Customer>): Customer {
   return {
     id: 'customer-123',
+    organizationId: 'org-1',
     email: 'john.doe@example.com',
     phone: '+14155551234',
     firstName: 'John',
@@ -36,6 +37,7 @@ export function createTestCustomerWithBookings(overrides?: Partial<Customer>) {
     bookings: [
       {
         id: 'booking-1',
+        organizationId: 'org-1',
         bookingNumber: 'BP-2024-001234',
         customerId: customer.id,
         vehicleId: 'vehicle-1',

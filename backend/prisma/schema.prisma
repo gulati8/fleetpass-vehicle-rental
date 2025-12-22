@@ -23,6 +23,10 @@ model Organization {
   locations     Location[]
   users         User[]
   payments      Payment[]
+  customers     Customer[]
+  bookings      Booking[]
+  leads         Lead[]
+  deals         Deal[]
 }
 
 // Dealership locations
@@ -112,7 +116,8 @@ model Vehicle {
 // Customers
 model Customer {
   id                    String   @id @default(uuid())
-  email                 String   @unique
+  organizationId        String
+  email                 String
   phone                 String?
   firstName             String
   lastName              String
@@ -132,11 +137,13 @@ model Customer {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   bookings              Booking[]
   leads                 Lead[]
   deals                 Deal[]
 
-  @@index([email])
+  @@unique([organizationId, email])
+  @@index([organizationId])
   @@index([kycStatus])
   // NEW: Index for phone lookups (support calls, quick customer lookup)
   @@index([phone])
@@ -146,6 +153,7 @@ model Customer {
 model Booking {
   id                      String   @id @default(uuid())
   bookingNumber           String   @unique // BP-2024-001234
+  organizationId          String
   customerId              String
   vehicleId               String
   pickupLocationId        String   // reference to Location (not enforced at DB level for simplicity)
@@ -176,9 +184,11 @@ model Booking {
 
   customer                Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   vehicle                 Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy               User? @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   payments                Payment[]
 
+  @@index([organizationId])
   @@index([customerId])
   @@index([vehicleId])
   @@index([status])
@@ -219,6 +229,7 @@ model Payment {
 // Leads
 model Lead {
   id                  String   @id @default(uuid())
+  organizationId      String
   customerId          String?
   customerEmail       String?  // if not yet a customer
   customerName        String?
@@ -232,11 +243,13 @@ model Lead {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customer            Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   assignedTo          User? @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   createdBy           User? @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   deals               Deal[]
 
+  @@index([organizationId])
   @@index([customerId])
   @@index([status])
   @@index([assignedToId])
@@ -249,6 +262,7 @@ model Lead {
 // Deals
 model Deal {
   id                  String   @id @default(uuid())
+  organizationId      String
   leadId              String?
   customerId          String
   vehicleId           String   // reference to Vehicle (not enforced)
@@ -260,10 +274,12 @@ model Deal {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lead                Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
   customer            Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   closedBy            User? @relation("DealClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
 
+  @@index([organizationId])
   @@index([customerId])
   @@index([status])
   // NEW: Index for deal pipeline queries (status + close date for reporting)

@@ -188,9 +188,6 @@ describe('AuthService', () => {
         name: signupDto.organizationName,
       });
 
-      // Mock: User doesn't exist yet
-      prismaService.user.findUnique.mockResolvedValue(null);
-
       // Mock: bcrypt.hash for password hashing
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
 
@@ -220,11 +217,6 @@ describe('AuthService', () => {
       expect(result.user).not.toHaveProperty('passwordHash');
       expect(result.access_token).toBe('mock-jwt-token');
 
-      // Verify user existence check
-      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { email: signupDto.email },
-      });
-
       // Verify password was hashed
       expect(bcrypt.hash).toHaveBeenCalledWith(signupDto.password, 12);
 
@@ -232,13 +224,19 @@ describe('AuthService', () => {
       expect(prismaService.$transaction).toHaveBeenCalled();
     });
 
-    it('should throw ConflictException when user already exists', async () => {
+    it('should throw ConflictException when database returns P2002 unique constraint error', async () => {
       // Arrange
       const signupDto = createSignupDto();
-      const existingUser = createTestUser({ email: signupDto.email });
 
-      // Mock: User already exists
-      prismaService.user.findUnique.mockResolvedValue(existingUser);
+      // Mock: bcrypt.hash
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
+
+      // Mock: Transaction fails with P2002 (unique constraint violation)
+      const p2002Error = Object.assign(
+        new Error('Unique constraint failed on the fields: (`email`)'),
+        { code: 'P2002' }
+      );
+      prismaService.$transaction.mockRejectedValue(p2002Error);
 
       // Act & Assert
       await expect(service.signup(signupDto)).rejects.toThrow(
@@ -247,9 +245,56 @@ describe('AuthService', () => {
       await expect(service.signup(signupDto)).rejects.toThrow(
         'User with this email already exists',
       );
+    });
 
-      // Verify no transaction happened
-      expect(prismaService.$transaction).not.toHaveBeenCalled();
+    it('should handle race condition by relying on database unique constraint', async () => {
+      // Arrange - Simulates two concurrent signup requests with same email
+      const signupDto = createSignupDto();
+
+      // Mock: bcrypt.hash
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
+
+      // Mock: First request succeeds
+      const user = createTestUser({ email: signupDto.email });
+      const organization = createTestOrganization();
+
+      // First call succeeds
+      prismaService.$transaction.mockImplementationOnce(async (callback: any) => {
+        const tx = {
+          organization: {
+            create: jest.fn().mockResolvedValue(organization),
+          },
+          user: {
+            create: jest.fn().mockResolvedValue({ ...user, organization }),
+          },
+        };
+        return callback(tx);
+      });
+
+      jwtService.sign.mockReturnValue('mock-jwt-token');
+
+      // Act - First request
+      const result1 = await service.signup(signupDto);
+
+      // Assert - First request succeeds
+      expect(result1).toHaveProperty('user');
+      expect(result1).toHaveProperty('organization');
+
+      // Mock second call to fail with P2002
+      const p2002Error = Object.assign(
+        new Error('Unique constraint failed on the fields: (`email`)'),
+        { code: 'P2002' }
+      );
+      prismaService.$transaction.mockRejectedValueOnce(p2002Error);
+
+      // Act & Assert - Second concurrent request fails with ConflictException
+      await expect(service.signup(signupDto)).rejects.toThrow(ConflictException);
+
+      // Setup mock again for the second assertion
+      prismaService.$transaction.mockRejectedValueOnce(p2002Error);
+      await expect(service.signup(signupDto)).rejects.toThrow(
+        'User with this email already exists',
+      );
     });
   });
 

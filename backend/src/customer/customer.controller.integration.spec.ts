@@ -19,6 +19,7 @@ import {
 } from '../test/fixtures/customer.fixtures';
 
 const request = require('supertest');
+const ORG_ID = 'org-123';
 
 describe('CustomerController (Integration)', () => {
   let app: INestApplication;
@@ -54,7 +55,7 @@ describe('CustomerController (Integration)', () => {
             id: 'user-123',
             email: 'user@test.com',
             role: 'admin',
-            organizationId: 'org-123',
+            organizationId: ORG_ID,
           };
           return true;
         }),
@@ -113,6 +114,7 @@ describe('CustomerController (Integration)', () => {
           lastName: dto.lastName,
           email: dto.email,
         }),
+        ORG_ID,
       );
     });
 
@@ -196,6 +198,7 @@ describe('CustomerController (Integration)', () => {
           dateOfBirth: dto.dateOfBirth,
           driverLicenseNumber: dto.driverLicenseNumber,
         }),
+        ORG_ID,
       );
     });
   });
@@ -233,6 +236,7 @@ describe('CustomerController (Integration)', () => {
           page: 1,
           limit: 10,
         }),
+        ORG_ID,
       );
     });
 
@@ -259,6 +263,7 @@ describe('CustomerController (Integration)', () => {
         expect.objectContaining({
           search: 'john',
         }),
+        ORG_ID,
       );
     });
 
@@ -290,6 +295,7 @@ describe('CustomerController (Integration)', () => {
         expect.objectContaining({
           kycStatus: 'approved',
         }),
+        ORG_ID,
       );
     });
 
@@ -317,6 +323,7 @@ describe('CustomerController (Integration)', () => {
           page: 2,
           limit: 5,
         }),
+        ORG_ID,
       );
     });
 
@@ -344,6 +351,7 @@ describe('CustomerController (Integration)', () => {
           sortBy: 'email',
           sortOrder: 'asc',
         }),
+        ORG_ID,
       );
     });
 
@@ -387,7 +395,7 @@ describe('CustomerController (Integration)', () => {
       expect(response.body.data.bookings).toBeInstanceOf(Array);
 
       // Verify service was called
-      expect(customerService.findOne).toHaveBeenCalledWith(customerId);
+      expect(customerService.findOne).toHaveBeenCalledWith(customerId, ORG_ID);
     });
 
     it('should return 404 when customer not found', async () => {
@@ -436,6 +444,7 @@ describe('CustomerController (Integration)', () => {
       expect(customerService.update).toHaveBeenCalledWith(
         customerId,
         expect.objectContaining(updateDto),
+        ORG_ID,
       );
     });
 
@@ -492,6 +501,7 @@ describe('CustomerController (Integration)', () => {
       expect(customerService.update).toHaveBeenCalledWith(
         customerId,
         expect.objectContaining(updateDto),
+        ORG_ID,
       );
     });
 
@@ -518,6 +528,7 @@ describe('CustomerController (Integration)', () => {
       expect(customerService.update).toHaveBeenCalledWith(
         customerId,
         expect.objectContaining(updateDto),
+        ORG_ID,
       );
     });
 
@@ -556,7 +567,7 @@ describe('CustomerController (Integration)', () => {
       expect(response.body.data.message).toBe('Customer deleted successfully');
 
       // Verify service was called
-      expect(customerService.remove).toHaveBeenCalledWith(customerId);
+      expect(customerService.remove).toHaveBeenCalledWith(customerId, ORG_ID);
     });
 
     it('should return 404 when customer not found', async () => {
@@ -615,6 +626,7 @@ describe('CustomerController (Integration)', () => {
       expect(customerService.updateKycStatus).toHaveBeenCalledWith(
         customerId,
         expect.objectContaining(verifyDto),
+        ORG_ID,
       );
     });
 

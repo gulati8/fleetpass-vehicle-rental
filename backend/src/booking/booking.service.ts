@@ -18,6 +18,30 @@ export class BookingService {
 
   constructor(private prisma: PrismaService) {}
 
+  private async getScopedBooking(id: string, organizationId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        vehicle: {
+          include: {
+            location: true,
+          },
+        },
+      },
+    });
+
+    if (!booking || booking.organizationId !== organizationId) {
+      this.logger.warn('Booking not found or unauthorized', {
+        bookingId: id,
+        organizationId,
+      });
+      throw new NotFoundException(`Booking with ID ${id} not found`);
+    }
+
+    return booking;
+  }
+
   /**
    * Generate unique booking number in format: BP-YYYY-NNNNNN
    */
@@ -66,6 +90,7 @@ export class BookingService {
     vehicleId: string,
     pickupDate: Date,
     dropoffDate: Date,
+    organizationId: string,
     excludeBookingId?: string,
   ): Promise<boolean> {
     const whereClause: any = {
@@ -73,6 +98,7 @@ export class BookingService {
       status: {
         in: ['pending', 'confirmed', 'active'],
       },
+      organizationId,
       OR: [
         // Booking starts during the requested period
         {
@@ -110,7 +136,10 @@ export class BookingService {
     return conflictingBookings === 0;
   }
 
-  async create(createBookingDto: CreateBookingDto) {
+  async create(
+    createBookingDto: CreateBookingDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Creating new booking', {
       customerId: createBookingDto.customerId,
       vehicleId: createBookingDto.vehicleId,
@@ -127,8 +156,11 @@ export class BookingService {
       }
 
       // Validate customer exists
-      const customer = await this.prisma.customer.findUnique({
-        where: { id: createBookingDto.customerId },
+      const customer = await this.prisma.customer.findFirst({
+        where: {
+          id: createBookingDto.customerId,
+          organizationId,
+        },
       });
 
       if (!customer) {
@@ -139,8 +171,13 @@ export class BookingService {
       }
 
       // Validate vehicle exists
-      const vehicle = await this.prisma.vehicle.findUnique({
-        where: { id: createBookingDto.vehicleId },
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: {
+          id: createBookingDto.vehicleId,
+          location: {
+            organizationId,
+          },
+        },
       });
 
       if (!vehicle) {
@@ -156,8 +193,8 @@ export class BookingService {
       }
 
       // Validate pickup location exists
-      const pickupLocation = await this.prisma.location.findUnique({
-        where: { id: createBookingDto.pickupLocationId },
+      const pickupLocation = await this.prisma.location.findFirst({
+        where: { id: createBookingDto.pickupLocationId, organizationId },
       });
 
       if (!pickupLocation) {
@@ -168,8 +205,8 @@ export class BookingService {
       }
 
       // Validate dropoff location exists
-      const dropoffLocation = await this.prisma.location.findUnique({
-        where: { id: createBookingDto.dropoffLocationId },
+      const dropoffLocation = await this.prisma.location.findFirst({
+        where: { id: createBookingDto.dropoffLocationId, organizationId },
       });
 
       if (!dropoffLocation) {
@@ -184,6 +221,7 @@ export class BookingService {
         createBookingDto.vehicleId,
         pickupDate,
         dropoffDate,
+        organizationId,
       );
 
       if (!isAvailable) {
@@ -206,6 +244,7 @@ export class BookingService {
       const booking = await this.prisma.booking.create({
         data: {
           bookingNumber,
+          organizationId,
           customerId: createBookingDto.customerId,
           vehicleId: createBookingDto.vehicleId,
           pickupLocationId: createBookingDto.pickupLocationId,
@@ -264,7 +303,7 @@ export class BookingService {
     }
   }
 
-  async findAll(query: BookingQueryDto) {
+  async findAll(query: BookingQueryDto, organizationId: string) {
     const {
       search,
       customerId,
@@ -283,7 +322,7 @@ export class BookingService {
 
     try {
       // Build where clause
-      const where: any = {};
+      const where: any = { organizationId };
 
       // Search filter (booking number, customer name, vehicle)
       if (search) {
@@ -401,28 +440,13 @@ export class BookingService {
     }
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, organizationId: string) {
     this.logger.logWithFields('debug', 'Finding booking by ID', {
       bookingId: id,
     });
 
     try {
-      const booking = await this.prisma.booking.findUnique({
-        where: { id },
-        include: {
-          customer: true,
-          vehicle: {
-            include: {
-              location: true,
-            },
-          },
-        },
-      });
-
-      if (!booking) {
-        this.logger.warn('Booking not found', { bookingId: id });
-        throw new NotFoundException(`Booking with ID ${id} not found`);
-      }
+      const booking = await this.getScopedBooking(id, organizationId);
 
       this.logger.logWithFields('debug', 'Booking retrieved', { bookingId: id });
 
@@ -438,12 +462,16 @@ export class BookingService {
     }
   }
 
-  async update(id: string, updateBookingDto: UpdateBookingDto) {
+  async update(
+    id: string,
+    updateBookingDto: UpdateBookingDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Updating booking', { bookingId: id });
 
     try {
       // Verify booking exists
-      const existingBooking = await this.findOne(id);
+      const existingBooking = await this.getScopedBooking(id, organizationId);
 
       // If dates are being updated, re-check availability
       if (updateBookingDto.pickupDatetime || updateBookingDto.dropoffDatetime) {
@@ -464,6 +492,7 @@ export class BookingService {
           existingBooking.vehicleId,
           pickupDate,
           dropoffDate,
+          organizationId,
           id,
         );
 
@@ -494,8 +523,11 @@ export class BookingService {
 
       // If customer is being changed, validate
       if (updateBookingDto.customerId) {
-        const customer = await this.prisma.customer.findUnique({
-          where: { id: updateBookingDto.customerId },
+        const customer = await this.prisma.customer.findFirst({
+          where: {
+            id: updateBookingDto.customerId,
+            organizationId,
+          },
         });
 
         if (!customer) {
@@ -505,8 +537,11 @@ export class BookingService {
 
       // If vehicle is being changed, validate
       if (updateBookingDto.vehicleId) {
-        const vehicle = await this.prisma.vehicle.findUnique({
-          where: { id: updateBookingDto.vehicleId },
+        const vehicle = await this.prisma.vehicle.findFirst({
+          where: {
+            id: updateBookingDto.vehicleId,
+            location: { organizationId },
+          },
         });
 
         if (!vehicle) {
@@ -516,8 +551,8 @@ export class BookingService {
 
       // If pickup location is being changed, validate
       if (updateBookingDto.pickupLocationId) {
-        const location = await this.prisma.location.findUnique({
-          where: { id: updateBookingDto.pickupLocationId },
+        const location = await this.prisma.location.findFirst({
+          where: { id: updateBookingDto.pickupLocationId, organizationId },
         });
 
         if (!location) {
@@ -527,8 +562,8 @@ export class BookingService {
 
       // If dropoff location is being changed, validate
       if (updateBookingDto.dropoffLocationId) {
-        const location = await this.prisma.location.findUnique({
-          where: { id: updateBookingDto.dropoffLocationId },
+        const location = await this.prisma.location.findFirst({
+          where: { id: updateBookingDto.dropoffLocationId, organizationId },
         });
 
         if (!location) {
@@ -606,12 +641,12 @@ export class BookingService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, organizationId: string) {
     this.logger.logWithFields('info', 'Cancelling booking', { bookingId: id });
 
     try {
       // Verify booking exists
-      const booking = await this.findOne(id);
+      const booking = await this.getScopedBooking(id, organizationId);
 
       // Can only cancel pending or confirmed bookings
       if (!['pending', 'confirmed'].includes(booking.status)) {
@@ -646,11 +681,11 @@ export class BookingService {
     }
   }
 
-  async confirm(id: string) {
+  async confirm(id: string, organizationId: string) {
     this.logger.logWithFields('info', 'Confirming booking', { bookingId: id });
 
     try {
-      const booking = await this.findOne(id);
+      const booking = await this.getScopedBooking(id, organizationId);
 
       if (booking.status !== 'pending') {
         throw new BadRequestException(
@@ -688,11 +723,11 @@ export class BookingService {
     }
   }
 
-  async activate(id: string) {
+  async activate(id: string, organizationId: string) {
     this.logger.logWithFields('info', 'Activating booking', { bookingId: id });
 
     try {
-      const booking = await this.findOne(id);
+      const booking = await this.getScopedBooking(id, organizationId);
 
       if (booking.status !== 'confirmed') {
         throw new BadRequestException(
@@ -730,11 +765,11 @@ export class BookingService {
     }
   }
 
-  async complete(id: string) {
+  async complete(id: string, organizationId: string) {
     this.logger.logWithFields('info', 'Completing booking', { bookingId: id });
 
     try {
-      const booking = await this.findOne(id);
+      const booking = await this.getScopedBooking(id, organizationId);
 
       if (booking.status !== 'active') {
         throw new BadRequestException(
@@ -772,8 +807,8 @@ export class BookingService {
     }
   }
 
-  async cancel(id: string) {
+  async cancel(id: string, organizationId: string) {
     // Reuse the remove method which handles cancellation logic
-    return this.remove(id);
+    return this.remove(id, organizationId);
   }
 }

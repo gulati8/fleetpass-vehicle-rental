@@ -70,8 +70,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('should show error details in development mode', () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
+    vi.stubEnv('NODE_ENV', 'development');
 
     render(
       <ErrorBoundary>
@@ -81,12 +80,11 @@ describe('ErrorBoundary', () => {
 
     expect(screen.getByText(/error details \(development only\)/i)).toBeInTheDocument();
 
-    process.env.NODE_ENV = originalEnv;
+    vi.unstubAllEnvs();
   });
 
   it('should hide error details in production mode', () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
 
     render(
       <ErrorBoundary>
@@ -96,6 +94,6 @@ describe('ErrorBoundary', () => {
 
     expect(screen.queryByText(/error details/i)).not.toBeInTheDocument();
 
-    process.env.NODE_ENV = originalEnv;
+    vi.unstubAllEnvs();
   });
 });

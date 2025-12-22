@@ -7,45 +7,68 @@ import {
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { LoggerService } from '../logger/logger.service';
+import { SafeHttpLogger } from '../logger/safe-http-logger';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  private readonly logger = new LoggerService('HTTP');
+  private readonly safeLogger: SafeHttpLogger;
+
+  constructor() {
+    const logger = new LoggerService('HTTP');
+    this.safeLogger = new SafeHttpLogger(logger);
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
     const res = context.switchToHttp().getResponse();
-    const { method, url, ip } = req;
-    const userAgent = req.get('user-agent') || '';
     const start = Date.now();
 
     return next.handle().pipe(
       tap({
         next: () => {
           const duration = Date.now() - start;
-          const statusCode = res.statusCode;
 
-          this.logger.logRequest(
-            { method, url, ip, userAgent },
-            { statusCode },
+          const logDto = {
+            method: req.method,
+            url: req.url,
+            ip: req.ip,
+            userAgent: req.get('user-agent') || '',
+            statusCode: res.statusCode,
             duration,
-          );
+            userId: req.user?.sub,
+            organizationId: req.user?.organizationId,
+          };
+
+          // Safe logging - never throws or blocks
+          this.safeLogger.logRequestSafe(logDto);
 
           // Warn on slow requests
           if (duration > 1000) {
-            this.logger.warn(`Slow request detected: ${method} ${url}`, {
-              duration,
-              statusCode,
-            });
+            this.safeLogger.logSlowRequestSafe(logDto);
           }
         },
         error: (error) => {
           const duration = Date.now() - start;
-          this.logger.error(`Request failed: ${method} ${url}`, error.stack, {
-            ip,
-            userAgent,
+
+          const logDto = {
+            method: req.method,
+            url: req.url,
+            ip: req.ip,
+            userAgent: req.get('user-agent') || '',
+            statusCode: error.status || 500,
             duration,
-          });
+            userId: req.user?.sub,
+            organizationId: req.user?.organizationId,
+          };
+
+          const errorDto = {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          };
+
+          // Safe error logging - never throws or blocks
+          this.safeLogger.logErrorSafe(logDto, errorDto);
         },
       }),
     );

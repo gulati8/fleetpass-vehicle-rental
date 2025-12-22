@@ -32,6 +32,7 @@ export class PersonaMockService {
   private inquiries = new Map<string, MockInquiry>();
   private verifications = new Map<string, MockVerification>();
   private webhookCallbacks = new Map<string, (event: WebhookEvent) => void>();
+  private scheduledTimeouts = new Set<NodeJS.Timeout>();
 
   /**
    * Create a new inquiry (verification session)
@@ -395,17 +396,37 @@ export class PersonaMockService {
     // Check test scenarios
     if (TEST_SCENARIOS.AUTO_APPROVE.pattern.test(licenseNumber)) {
       // Auto-approve in background (non-blocking)
-      setTimeout(async () => {
-        await this.autoApproveInquiry(inquiryId);
+      const timeout = setTimeout(async () => {
+        this.scheduledTimeouts.delete(timeout);
+        try {
+          await this.autoApproveInquiry(inquiryId);
+        } catch (error) {
+          // Best-effort background processing; ignore if inquiry was cleared/deleted.
+          this.logger.warn('Auto-approve background job failed', {
+            inquiryId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }, 2000);
+      this.scheduledTimeouts.add(timeout);
     } else if (TEST_SCENARIOS.AUTO_DECLINE.pattern.test(licenseNumber)) {
       // Auto-decline in background (non-blocking)
-      setTimeout(async () => {
-        await this.autoDeclineInquiry(
-          inquiryId,
-          TEST_SCENARIOS.AUTO_DECLINE.reason,
-        );
+      const timeout = setTimeout(async () => {
+        this.scheduledTimeouts.delete(timeout);
+        try {
+          await this.autoDeclineInquiry(
+            inquiryId,
+            TEST_SCENARIOS.AUTO_DECLINE.reason,
+          );
+        } catch (error) {
+          // Best-effort background processing; ignore if inquiry was cleared/deleted.
+          this.logger.warn('Auto-decline background job failed', {
+            inquiryId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }, 2000);
+      this.scheduledTimeouts.add(timeout);
     }
     // Otherwise, stays in pending for manual review
   }
@@ -479,6 +500,10 @@ export class PersonaMockService {
    * Clear all data (for testing)
    */
   clearAll(): void {
+    for (const timeout of this.scheduledTimeouts) {
+      clearTimeout(timeout);
+    }
+    this.scheduledTimeouts.clear();
     this.inquiries.clear();
     this.verifications.clear();
     this.webhookCallbacks.clear();

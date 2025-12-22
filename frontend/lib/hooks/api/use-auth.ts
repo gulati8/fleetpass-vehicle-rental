@@ -11,18 +11,29 @@ interface LoginCredentials {
 interface SignupData {
   email: string;
   password: string;
-  fullName: string;
-  phone: string;
-  role: 'DEALER' | 'CUSTOMER';
+  firstName: string;
+  lastName: string;
+  organizationName: string;
 }
 
 interface User {
   id: string;
   email: string;
-  fullName: string;
   role: string;
-  dealerId?: string;
-  customerId?: string;
+  firstName: string;
+  lastName: string;
+  organizationId: string;
+}
+
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface MeResponse {
+  user: User;
+  organization: Organization;
 }
 
 // Query: Get Current User
@@ -31,7 +42,7 @@ export function useMe() {
     queryKey: queryKeys.auth.me,
     queryFn: async () => {
       const response = await apiClient.get('/auth/me');
-      return response.data.data as User;
+      return response.data.data as MeResponse;
     },
     retry: false, // Don't retry if not authenticated
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -45,7 +56,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
       const response = await apiClient.post('/auth/login', credentials);
-      return response.data.data;
+      return response.data.data as MeResponse;
     },
     onSuccess: () => {
       // Invalidate and refetch user data
@@ -61,7 +72,7 @@ export function useSignup() {
   return useMutation({
     mutationFn: async (data: SignupData) => {
       const response = await apiClient.post('/auth/signup', data);
-      return response.data.data;
+      return response.data.data as MeResponse;
     },
     onSuccess: () => {
       // Invalidate and refetch user data

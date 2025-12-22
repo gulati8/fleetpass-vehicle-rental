@@ -185,7 +185,7 @@ export function CustomerForm({
               <Select
                 id="driverLicenseState"
                 {...register('driverLicenseState')}
-                error={errors.driverLicenseState?.message}
+                error={errors.driverLicenseState?.message?.toString()}
                 disabled={isSubmitting}
                 options={[
                   { value: '', label: 'Select State' },

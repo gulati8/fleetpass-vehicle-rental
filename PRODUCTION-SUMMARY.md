@@ -88,9 +88,9 @@ FleetPass is now production-ready with comprehensive security, monitoring, and d
 ### Monitoring & Observability
 
 ✅ **Health Checks**
-- `/health` - Overall system health
-- `/health/live` - Liveness probe
-- `/health/ready` - Readiness probe
+- `/api/v1/health` - Overall system health
+- `/api/v1/health/live` - Liveness probe
+- `/api/v1/health/ready` - Readiness probe
 
 ✅ **Logging**
 - Structured JSON logs
@@ -200,7 +200,7 @@ docker-compose -f docker-compose.prod.yml up -d --build
 docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
 
 # 5. Verify health
-curl http://localhost:3001/health
+curl http://localhost:3001/api/v1/health
 ```
 
 For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
@@ -284,7 +284,7 @@ See `.env.production.example` files for complete list.
 
 Before go-live, verify:
 
-1. Health checks: `/health`, `/health/live`, `/health/ready`
+1. Health checks: `/api/v1/health`, `/api/v1/health/live`, `/api/v1/health/ready`
 2. Authentication flow: Register, login, protected routes
 3. Core features: Vehicles, bookings, payments, KYC
 4. Error handling: 404s, API errors, validation
@@ -322,7 +322,7 @@ gunzip -t backups/fleetpass_YYYYMMDD_HHMMSS.sql.gz
 
 ### Health Check Response
 
-**Endpoint**: `GET /health`
+**Endpoint**: `GET /api/v1/health`
 
 ```json
 {
@@ -348,13 +348,13 @@ gunzip -t backups/fleetpass_YYYYMMDD_HHMMSS.sql.gz
 
 ### Liveness Probe
 
-**Endpoint**: `GET /health/live`
+**Endpoint**: `GET /api/v1/health/live`
 
 Returns 200 if application is running.
 
 ### Readiness Probe
 
-**Endpoint**: `GET /health/ready`
+**Endpoint**: `GET /api/v1/health/ready`
 
 Returns 200 only if application is ready to serve traffic (database and Redis connected).
 
@@ -467,7 +467,7 @@ docker-compose -f docker-compose.prod.yml up -d --build
 docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
 
 # 5. Verify health
-curl https://api.fleetpass.example.com/health
+curl https://api.fleetpass.example.com/api/v1/health
 ```
 
 ---

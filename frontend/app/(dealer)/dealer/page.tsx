@@ -1,44 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import apiClient from '@/lib/api-client';
+import { useLogout, useMe } from '@/lib/hooks/api';
 
 export default function DealerDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+
+  const meQuery = useMe();
+  const logoutMutation = useLogout();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await apiClient.get('/auth/me');
-        setUser(response.data);
-      } catch (error) {
-        // Redirect to login if not authenticated
-        router.push('/auth/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, [router]);
+    if (meQuery.isLoading) return;
+    if (meQuery.isError || !meQuery.data) {
+      router.push('/auth/login');
+    }
+  }, [meQuery.isError, meQuery.isLoading, meQuery.data, router]);
 
   const handleLogout = async () => {
     try {
-      // Call backend logout endpoint to clear cookie
-      await apiClient.post('/auth/logout');
-    } catch (error) {
-      // Log error but continue with logout flow
-      console.error('Logout error:', error);
+      await logoutMutation.mutateAsync();
     } finally {
-      // Redirect to login page
       router.push('/auth/login');
     }
   };
 
-  if (loading) {
+  if (meQuery.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
@@ -46,9 +33,11 @@ export default function DealerDashboard() {
     );
   }
 
-  if (!user) {
+  if (meQuery.isError || !meQuery.data) {
     return null;
   }
+
+  const { user, organization } = meQuery.data;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -60,13 +49,13 @@ export default function DealerDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">
-                {user.user.firstName} {user.user.lastName}
+                {user.firstName} {user.lastName}
               </span>
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
               >
-                Logout
+                {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
               </button>
             </div>
           </div>
@@ -77,7 +66,7 @@ export default function DealerDashboard() {
         <div className="px-4 py-6 sm:px-0">
           <div className="border-4 border-dashed border-gray-200 rounded-lg p-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Welcome to {user.organization.name}!
+              Welcome to {organization.name}!
             </h2>
             <p className="text-gray-600 mb-6">
               Your dealer dashboard is under construction. Here's what's coming:

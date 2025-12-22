@@ -16,11 +16,27 @@ describe('useVehicles', () => {
     const mockVehicles = [
       {
         id: '1',
+        locationId: 'loc1',
         vin: 'TEST123',
         make: 'Toyota',
         model: 'Camry',
         year: 2023,
-        status: 'AVAILABLE',
+        trim: null,
+        bodyType: null,
+        exteriorColor: null,
+        interiorColor: null,
+        transmission: null,
+        fuelType: null,
+        mileage: null,
+        dailyRateCents: 5000,
+        weeklyRateCents: null,
+        monthlyRateCents: null,
+        features: null,
+        imageUrls: [],
+        isAvailableForRent: true,
+        notes: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -57,10 +73,27 @@ describe('useCreateVehicle', () => {
   it('should create vehicle successfully', async () => {
     const mockVehicle = {
       id: '1',
+      locationId: 'loc1',
       vin: 'TEST123',
       make: 'Toyota',
       model: 'Camry',
       year: 2023,
+      trim: null,
+      bodyType: null,
+      exteriorColor: null,
+      interiorColor: null,
+      transmission: null,
+      fuelType: null,
+      mileage: null,
+      dailyRateCents: 5000,
+      weeklyRateCents: null,
+      monthlyRateCents: null,
+      features: null,
+      imageUrls: [],
+      isAvailableForRent: true,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     vi.mocked(apiClient.post).mockResolvedValueOnce({
@@ -72,18 +105,12 @@ describe('useCreateVehicle', () => {
     });
 
     result.current.mutate({
+      locationId: 'loc1',
       vin: 'TEST123',
       make: 'Toyota',
       model: 'Camry',
       year: 2023,
-      color: 'Blue',
-      mileage: 0,
-      licensePlate: 'ABC123',
-      locationId: 'loc1',
-      dailyRate: 50,
-      fuelType: 'Gasoline',
-      transmission: 'Automatic',
-      seats: 5,
+      dailyRateCents: 5000,
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

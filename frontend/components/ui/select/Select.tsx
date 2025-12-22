@@ -15,7 +15,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
-    const effectiveVariant = error ? 'error' : variant;
+    const hasError = Boolean(error);
+    const effectiveVariant = hasError ? 'error' : variant;
 
     return (
       <select

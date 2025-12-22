@@ -17,7 +17,58 @@ export class CustomerService {
 
   constructor(private prisma: PrismaService) {}
 
-  async create(createCustomerDto: CreateCustomerDto) {
+  private async getScopedCustomer(id: string, organizationId: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: {
+        bookings: {
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            vehicle: {
+              select: {
+                id: true,
+                make: true,
+                model: true,
+                year: true,
+                vin: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            bookings: true,
+            leads: true,
+            deals: true,
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      this.logger.warn('Customer not found or unauthorized', {
+        customerId: id,
+        organizationId,
+      });
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
+
+    if (customer.organizationId !== organizationId) {
+      this.logger.warn('Customer access denied for organization', {
+        customerId: id,
+        organizationId,
+      });
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
+
+    return customer;
+  }
+
+  async create(
+    createCustomerDto: CreateCustomerDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Creating new customer', {
       email: createCustomerDto.email,
     });
@@ -25,7 +76,12 @@ export class CustomerService {
     try {
       // Check if customer with this email already exists
       const existingCustomer = await this.prisma.customer.findUnique({
-        where: { email: createCustomerDto.email },
+        where: {
+          organizationId_email: {
+            organizationId,
+            email: createCustomerDto.email,
+          },
+        },
       });
 
       if (existingCustomer) {
@@ -40,6 +96,7 @@ export class CustomerService {
       // Convert date strings to Date objects
       const data: any = {
         ...createCustomerDto,
+        organizationId,
       };
 
       if (createCustomerDto.dateOfBirth) {
@@ -76,7 +133,7 @@ export class CustomerService {
     }
   }
 
-  async findAll(query: CustomerQueryDto) {
+  async findAll(query: CustomerQueryDto, organizationId: string) {
     const {
       search,
       kycStatus,
@@ -90,7 +147,7 @@ export class CustomerService {
 
     try {
       // Build where clause
-      const where: any = {};
+      const where: any = { organizationId };
 
       // Add search filter (searches name, email, phone, license number)
       if (search) {
@@ -154,44 +211,13 @@ export class CustomerService {
     }
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, organizationId: string) {
     this.logger.logWithFields('debug', 'Finding customer by ID', {
       customerId: id,
     });
 
     try {
-      const customer = await this.prisma.customer.findUnique({
-        where: { id },
-        include: {
-          bookings: {
-            take: 5,
-            orderBy: { createdAt: 'desc' },
-            include: {
-              vehicle: {
-                select: {
-                  id: true,
-                  make: true,
-                  model: true,
-                  year: true,
-                  vin: true,
-                },
-              },
-            },
-          },
-          _count: {
-            select: {
-              bookings: true,
-              leads: true,
-              deals: true,
-            },
-          },
-        },
-      });
-
-      if (!customer) {
-        this.logger.warn('Customer not found', { customerId: id });
-        throw new NotFoundException(`Customer with ID ${id} not found`);
-      }
+      const customer = await this.getScopedCustomer(id, organizationId);
 
       this.logger.logWithFields('debug', 'Customer retrieved', {
         customerId: id,
@@ -209,20 +235,35 @@ export class CustomerService {
     }
   }
 
-  async update(id: string, updateCustomerDto: UpdateCustomerDto) {
+  async update(
+    id: string,
+    updateCustomerDto: UpdateCustomerDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Updating customer', { customerId: id });
 
     try {
-      // First verify the customer exists
-      await this.findOne(id);
+      // First verify the customer exists and belongs to org
+      const existingCustomer = await this.getScopedCustomer(
+        id,
+        organizationId,
+      );
 
       // If email is being updated, check for uniqueness
-      if (updateCustomerDto.email) {
-        const existingCustomer = await this.prisma.customer.findUnique({
-          where: { email: updateCustomerDto.email },
+      if (
+        updateCustomerDto.email &&
+        updateCustomerDto.email !== existingCustomer.email
+      ) {
+        const existingEmail = await this.prisma.customer.findUnique({
+          where: {
+            organizationId_email: {
+              organizationId,
+              email: updateCustomerDto.email,
+            },
+          },
         });
 
-        if (existingCustomer && existingCustomer.id !== id) {
+        if (existingEmail && existingEmail.id !== id) {
           this.logger.warn('Email already in use by another customer', {
             email: updateCustomerDto.email,
           });
@@ -285,12 +326,12 @@ export class CustomerService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, organizationId: string) {
     this.logger.logWithFields('info', 'Deleting customer', { customerId: id });
 
     try {
       // First verify the customer exists
-      await this.findOne(id);
+      await this.getScopedCustomer(id, organizationId);
 
       // Check for active bookings
       const activeBookingsCount = await this.prisma.booking.count({
@@ -335,7 +376,11 @@ export class CustomerService {
     }
   }
 
-  async updateKycStatus(id: string, verifyKycDto: VerifyKycDto) {
+  async updateKycStatus(
+    id: string,
+    verifyKycDto: VerifyKycDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Updating KYC status', {
       customerId: id,
       newStatus: verifyKycDto.status,
@@ -343,7 +388,7 @@ export class CustomerService {
 
     try {
       // First verify the customer exists
-      await this.findOne(id);
+      await this.getScopedCustomer(id, organizationId);
 
       const updateData: any = {
         kycStatus: verifyKycDto.status,

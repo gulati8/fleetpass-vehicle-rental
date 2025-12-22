@@ -30,15 +30,37 @@ export class KycService {
     );
   }
 
+  private async resolveCustomerOrg(
+    customerId: string,
+    organizationId?: string,
+  ) {
+    if (organizationId) {
+      return organizationId;
+    }
+
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { organizationId: true },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${customerId} not found`);
+    }
+
+    return customer.organizationId;
+  }
+
   /**
    * Create KYC inquiry for a customer
    */
-  async createInquiry(customerId: string) {
+  async createInquiry(customerId: string, organizationId?: string) {
     this.logger.logWithFields('info', 'Creating KYC inquiry', { customerId });
 
     try {
+      const orgId = await this.resolveCustomerOrg(customerId, organizationId);
+
       // Validate customer exists
-      const customer = await this.customerService.findOne(customerId);
+      const customer = await this.customerService.findOne(customerId, orgId);
 
       // Check if customer is already verified
       if (customer.kycStatus === 'approved') {
@@ -68,10 +90,14 @@ export class KycService {
       });
 
       // Update customer with inquiry ID and status
-      await this.customerService.update(customerId, {
-        kycInquiryId: inquiry.id,
-        kycStatus: 'in_progress',
-      });
+      await this.customerService.update(
+        customerId,
+        {
+          kycInquiryId: inquiry.id,
+          kycStatus: 'in_progress',
+        },
+        orgId,
+      );
 
       this.logger.logWithFields('info', 'KYC inquiry created', {
         customerId,
@@ -100,7 +126,7 @@ export class KycService {
   /**
    * Get inquiry status
    */
-  async getInquiry(inquiryId: string) {
+  async getInquiry(inquiryId: string, organizationId?: string) {
     this.logger.logWithFields('debug', 'Retrieving KYC inquiry', {
       inquiryId,
     });
@@ -110,7 +136,11 @@ export class KycService {
 
       // Verify inquiry belongs to a customer in our system
       if (inquiry.attributes.reference_id) {
-        await this.customerService.findOne(inquiry.attributes.reference_id);
+        const orgId = await this.resolveCustomerOrg(
+          inquiry.attributes.reference_id,
+          organizationId,
+        );
+        await this.customerService.findOne(inquiry.attributes.reference_id, orgId);
       }
 
       return inquiry;
@@ -130,7 +160,11 @@ export class KycService {
   /**
    * Submit government ID for verification
    */
-  async submitGovernmentId(inquiryId: string, document: GovernmentIdData) {
+  async submitGovernmentId(
+    inquiryId: string,
+    document: GovernmentIdData,
+    organizationId?: string,
+  ) {
     this.logger.logWithFields('info', 'Submitting government ID', {
       inquiryId,
       country: document.country,
@@ -139,7 +173,7 @@ export class KycService {
 
     try {
       // Get inquiry and validate it exists
-      const inquiry = await this.getInquiry(inquiryId);
+      const inquiry = await this.getInquiry(inquiryId, organizationId);
 
       // Validate inquiry is in correct state
       if (
@@ -166,8 +200,13 @@ export class KycService {
 
       // If customer has driver's license number, check for auto-processing
       if (inquiry.attributes.reference_id) {
+        const orgId = await this.resolveCustomerOrg(
+          inquiry.attributes.reference_id,
+          organizationId,
+        );
         const customer = await this.customerService.findOne(
           inquiry.attributes.reference_id,
+          orgId,
         );
 
         if (customer.driverLicenseNumber) {
@@ -199,12 +238,16 @@ export class KycService {
   /**
    * Submit selfie for verification
    */
-  async submitSelfie(inquiryId: string, selfieData: SelfieData) {
+  async submitSelfie(
+    inquiryId: string,
+    selfieData: SelfieData,
+    organizationId?: string,
+  ) {
     this.logger.logWithFields('info', 'Submitting selfie', { inquiryId });
 
     try {
       // Get inquiry and validate it exists
-      const inquiry = await this.getInquiry(inquiryId);
+      const inquiry = await this.getInquiry(inquiryId, organizationId);
 
       // Validate inquiry is in correct state
       if (
@@ -249,14 +292,14 @@ export class KycService {
   /**
    * Approve inquiry (test helper)
    */
-  async approveInquiry(inquiryId: string) {
+  async approveInquiry(inquiryId: string, organizationId?: string) {
     this.logger.logWithFields('info', 'Manually approving inquiry', {
       inquiryId,
     });
 
     try {
       // Validate inquiry exists and belongs to our system
-      await this.getInquiry(inquiryId);
+      await this.getInquiry(inquiryId, organizationId);
 
       // Auto-approve via Persona mock
       const inquiry = await this.personaMock.autoApproveInquiry(inquiryId);
@@ -283,7 +326,11 @@ export class KycService {
   /**
    * Decline inquiry (test helper)
    */
-  async declineInquiry(inquiryId: string, reason: string) {
+  async declineInquiry(
+    inquiryId: string,
+    reason: string,
+    organizationId?: string,
+  ) {
     this.logger.logWithFields('info', 'Manually declining inquiry', {
       inquiryId,
       reason,
@@ -291,7 +338,7 @@ export class KycService {
 
     try {
       // Validate inquiry exists and belongs to our system
-      await this.getInquiry(inquiryId);
+      await this.getInquiry(inquiryId, organizationId);
 
       // Auto-decline via Persona mock
       const inquiry = await this.personaMock.autoDeclineInquiry(
@@ -376,6 +423,8 @@ export class KycService {
       kycVerifiedAt: new Date(),
     };
 
+    const orgId = await this.resolveCustomerOrg(customerId);
+
     // Update customer name if provided
     if (inquiry.attributes.fields.name_first?.value) {
       updateData.firstName = inquiry.attributes.fields.name_first.value;
@@ -398,7 +447,7 @@ export class KycService {
     }
 
     // Update customer record
-    await this.customerService.update(customerId, updateData);
+    await this.customerService.update(customerId, updateData, orgId);
 
     this.logger.logWithFields('info', 'Customer KYC approved', {
       customerId,
@@ -422,10 +471,16 @@ export class KycService {
 
     const customerId = inquiry.attributes.reference_id;
 
+    const orgId = await this.resolveCustomerOrg(customerId);
+
     // Update customer status to rejected
-    await this.customerService.update(customerId, {
-      kycStatus: 'rejected',
-    });
+    await this.customerService.update(
+      customerId,
+      {
+        kycStatus: 'rejected',
+      },
+      orgId,
+    );
 
     this.logger.logWithFields('info', 'Customer KYC rejected', {
       customerId,
@@ -449,11 +504,17 @@ export class KycService {
 
     const customerId = inquiry.attributes.reference_id;
 
+    const orgId = await this.resolveCustomerOrg(customerId);
+
     // Reset to pending so they can try again
-    await this.customerService.update(customerId, {
-      kycStatus: 'pending',
-      kycInquiryId: undefined,
-    });
+    await this.customerService.update(
+      customerId,
+      {
+        kycStatus: 'pending',
+        kycInquiryId: undefined,
+      },
+      orgId,
+    );
 
     this.logger.logWithFields('info', 'Customer KYC inquiry expired', {
       customerId,

@@ -21,6 +21,8 @@ See PICARD.md "7 Levels of Delegation" for guidance.
 ## Workflow Phases
 
 Execute these phases in order, updating the state file after each:
+**Output validation**: After each subagent completes, save its output to a temp file and validate with `.claude/skills/orchestration/utilities/validate-agent-output.sh /tmp/agent-output.md <role>`. If validation fails, request a re-emit before proceeding.
+**Budget guardrail (optional)**: If a token budget is set, run `.claude/skills/state-management/utilities/check-budget.sh "$STATE_FILE" "$BUDGET_TOKENS"` after each step and pause if exceeded.
 
 ### Phase 1: Initialize Mission Log
 1. Run: `.claude/skills/state-management/utilities/init-state.sh "$ARGUMENTS" "$ARGUMENTS"`
@@ -50,6 +52,7 @@ Execute these phases in order, updating the state file after each:
 4. Update state: `.claude/skills/state-management/utilities/update-step.sh "$STATE_FILE" "planning" "complete" "Plan created"`
 
 **Checkpoint**: Present the plan to the user and ask for approval before proceeding.
+**Dependency check**: If the plan introduces new dependencies, get explicit approval and invoke `security-auditor` to review risks before implementation.
 
 ### Phase 4: Engage (Parallel Execution)
 1. Update state: `.claude/skills/state-management/utilities/update-step.sh "$STATE_FILE" "implementation" "in_progress"`
@@ -87,7 +90,7 @@ Execute these phases in order, updating the state file after each:
 2. Use the `code-reviewer` subagent to:
    - Review all changes made
    - Identify any issues
-   - If critical issues found, use code-writer to fix them
+   - If critical issues found, use `feedback-coordinator` to iterate between `code-reviewer` and `code-writer` (max 3 iterations)
 3. Update state: `.claude/skills/state-management/utilities/update-step.sh "$STATE_FILE" "review" "complete" "Review status"`
 
 ### Phase 7: Archive Records

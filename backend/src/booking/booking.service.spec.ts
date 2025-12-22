@@ -17,6 +17,7 @@ import {
 describe('BookingService', () => {
   let service: BookingService;
   let prisma: PrismaService;
+  const ORG_ID = 'org-1';
 
   const mockPrismaService = {
     booking: {
@@ -28,12 +29,15 @@ describe('BookingService', () => {
       update: jest.fn(),
     },
     customer: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     vehicle: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     location: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -74,9 +78,18 @@ describe('BookingService', () => {
     };
 
     it('should create a booking successfully', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(mockVehicle);
-      mockPrismaService.location.findUnique.mockResolvedValue(mockLocation);
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue({
+        ...mockVehicle,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.location.findFirst.mockResolvedValue({
+        ...mockLocation,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.booking.count.mockResolvedValue(0); // No conflicts
       mockPrismaService.booking.findFirst.mockResolvedValue(null); // For booking number generation
       mockPrismaService.booking.create.mockResolvedValue({
@@ -85,7 +98,7 @@ describe('BookingService', () => {
         vehicle: mockVehicle,
       });
 
-      const result = await service.create(createDto);
+      const result = await service.create(createDto, ORG_ID);
 
       expect(result).toBeDefined();
       expect(mockPrismaService.booking.create).toHaveBeenCalled();
@@ -98,48 +111,67 @@ describe('BookingService', () => {
         dropoffDatetime: '2024-01-01T10:00:00Z',
       };
 
-      await expect(service.create(invalidDto)).rejects.toThrow(
+      await expect(service.create(invalidDto, ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw error if customer not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(null);
+      mockPrismaService.customer.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw error if vehicle not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(null);
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw error if vehicle is not available for rent', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue({
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue({
         ...mockVehicle,
+        organizationId: ORG_ID,
         isAvailableForRent: false,
       });
-      mockPrismaService.location.findUnique.mockResolvedValue(mockLocation);
+      mockPrismaService.location.findFirst.mockResolvedValue({
+        ...mockLocation,
+        organizationId: ORG_ID,
+      });
 
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw error if vehicle has conflicting bookings', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(mockVehicle);
-      mockPrismaService.location.findUnique.mockResolvedValue(mockLocation);
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue({
+        ...mockVehicle,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.location.findFirst.mockResolvedValue({
+        ...mockLocation,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.booking.count.mockResolvedValue(1); // Conflict found
 
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, ORG_ID)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -150,7 +182,7 @@ describe('BookingService', () => {
       const mockBookings = [mockBooking];
       mockPrismaService.$transaction.mockResolvedValue([mockBookings, 1]);
 
-      const result = await service.findAll({});
+      const result = await service.findAll({}, ORG_ID);
 
       expect(result.items).toEqual(mockBookings);
       expect(result.total).toBe(1);
@@ -161,7 +193,7 @@ describe('BookingService', () => {
     it('should filter by customer ID', async () => {
       mockPrismaService.$transaction.mockResolvedValue([[], 0]);
 
-      await service.findAll({ customerId: 'customer-1' });
+      await service.findAll({ customerId: 'customer-1' }, ORG_ID);
 
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
     });
@@ -169,7 +201,7 @@ describe('BookingService', () => {
     it('should filter by status', async () => {
       mockPrismaService.$transaction.mockResolvedValue([[], 0]);
 
-      await service.findAll({ status: 'confirmed' });
+      await service.findAll({ status: 'confirmed' }, ORG_ID);
 
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
     });
@@ -179,11 +211,12 @@ describe('BookingService', () => {
     it('should return a booking by ID', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
 
-      const result = await service.findOne('booking-1');
+      const result = await service.findOne('booking-1', ORG_ID);
 
       expect(result).toBeDefined();
       expect(result.id).toBe('booking-1');
@@ -192,7 +225,7 @@ describe('BookingService', () => {
     it('should throw NotFoundException if booking not found', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('invalid-id')).rejects.toThrow(
+      await expect(service.findOne('invalid-id', ORG_ID)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -206,6 +239,7 @@ describe('BookingService', () => {
     it('should update booking successfully', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
@@ -214,7 +248,7 @@ describe('BookingService', () => {
         ...updateDto,
       });
 
-      const result = await service.update('booking-1', updateDto);
+      const result = await service.update('booking-1', updateDto, ORG_ID);
 
       expect(result.notes).toBe('Updated notes');
       expect(mockPrismaService.booking.update).toHaveBeenCalled();
@@ -228,6 +262,7 @@ describe('BookingService', () => {
 
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
@@ -237,7 +272,7 @@ describe('BookingService', () => {
         ...dateUpdateDto,
       });
 
-      await service.update('booking-1', dateUpdateDto);
+      await service.update('booking-1', dateUpdateDto, ORG_ID);
 
       expect(mockPrismaService.booking.count).toHaveBeenCalled();
     });
@@ -250,13 +285,14 @@ describe('BookingService', () => {
 
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
       mockPrismaService.booking.count.mockResolvedValue(1); // Conflict
 
       await expect(
-        service.update('booking-1', dateUpdateDto),
+        service.update('booking-1', dateUpdateDto, ORG_ID),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -265,6 +301,7 @@ describe('BookingService', () => {
     it('should cancel a pending booking', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'pending',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
@@ -274,7 +311,7 @@ describe('BookingService', () => {
         status: 'cancelled',
       });
 
-      const result = await service.remove('booking-1');
+      const result = await service.remove('booking-1', ORG_ID);
 
       expect(result.message).toBe('Booking cancelled successfully');
       expect(mockPrismaService.booking.update).toHaveBeenCalledWith({
@@ -286,12 +323,13 @@ describe('BookingService', () => {
     it('should not allow cancelling active bookings', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'active',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
 
-      await expect(service.remove('booking-1')).rejects.toThrow(
+      await expect(service.remove('booking-1', ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -301,6 +339,7 @@ describe('BookingService', () => {
     it('should confirm a pending booking', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'pending',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
@@ -312,7 +351,7 @@ describe('BookingService', () => {
         vehicle: mockVehicle,
       });
 
-      const result = await service.confirm('booking-1');
+      const result = await service.confirm('booking-1', ORG_ID);
 
       expect(result.status).toBe('confirmed');
     });
@@ -320,12 +359,13 @@ describe('BookingService', () => {
     it('should not allow confirming non-pending bookings', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'confirmed',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
 
-      await expect(service.confirm('booking-1')).rejects.toThrow(
+      await expect(service.confirm('booking-1', ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -335,6 +375,7 @@ describe('BookingService', () => {
     it('should activate a confirmed booking', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'confirmed',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
@@ -346,7 +387,7 @@ describe('BookingService', () => {
         vehicle: mockVehicle,
       });
 
-      const result = await service.activate('booking-1');
+      const result = await service.activate('booking-1', ORG_ID);
 
       expect(result.status).toBe('active');
     });
@@ -354,12 +395,13 @@ describe('BookingService', () => {
     it('should not allow activating non-confirmed bookings', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'pending',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
 
-      await expect(service.activate('booking-1')).rejects.toThrow(
+      await expect(service.activate('booking-1', ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -369,6 +411,7 @@ describe('BookingService', () => {
     it('should complete an active booking', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'active',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
@@ -380,7 +423,7 @@ describe('BookingService', () => {
         vehicle: mockVehicle,
       });
 
-      const result = await service.complete('booking-1');
+      const result = await service.complete('booking-1', ORG_ID);
 
       expect(result.status).toBe('completed');
     });
@@ -388,12 +431,13 @@ describe('BookingService', () => {
     it('should not allow completing non-active bookings', async () => {
       mockPrismaService.booking.findUnique.mockResolvedValue({
         ...mockBooking,
+        organizationId: ORG_ID,
         status: 'confirmed',
         customer: mockCustomer,
         vehicle: { ...mockVehicle, location: mockLocation },
       });
 
-      await expect(service.complete('booking-1')).rejects.toThrow(
+      await expect(service.complete('booking-1', ORG_ID)).rejects.toThrow(
         BadRequestException,
       );
     });

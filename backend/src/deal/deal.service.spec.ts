@@ -17,10 +17,12 @@ import { mockCustomer, mockVehicle } from '../test/fixtures/booking.fixtures';
 describe('DealService', () => {
   let service: DealService;
   let prisma: PrismaService;
+  const ORG_ID = 'org-1';
 
   const mockPrismaService = {
     deal: {
       create: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
@@ -28,12 +30,15 @@ describe('DealService', () => {
       delete: jest.fn(),
     },
     customer: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     vehicle: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     lead: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -73,12 +78,21 @@ describe('DealService', () => {
     };
 
     it('should create a deal successfully', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(mockVehicle);
-      mockPrismaService.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue({
+        ...mockVehicle,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.lead.findFirst.mockResolvedValue({
+        ...mockLead,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.deal.create.mockResolvedValue(mockDealWithRelations);
 
-      const result = await service.create(createDto, 'user-123');
+      const result = await service.create(createDto, 'user-123', ORG_ID);
 
       expect(result).toBeDefined();
       expect(result.id).toBe('deal-123');
@@ -90,36 +104,47 @@ describe('DealService', () => {
           dealValueCents: createDto.dealValueCents,
           notes: createDto.notes,
           status: 'pending',
+          organizationId: ORG_ID,
+          closedById: 'user-123',
         },
         include: expect.any(Object),
       });
     });
 
     it('should throw BadRequestException if customer not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(null);
+      mockPrismaService.customer.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(createDto, 'user-123')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.create(createDto, 'user-123', ORG_ID),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if vehicle not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(null);
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(createDto, 'user-123')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.create(createDto, 'user-123', ORG_ID),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if lead not found', async () => {
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(mockVehicle);
-      mockPrismaService.lead.findUnique.mockResolvedValue(null);
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue({
+        ...mockVehicle,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.lead.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(createDto, 'user-123')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.create(createDto, 'user-123', ORG_ID),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should create deal without leadId', async () => {
@@ -128,14 +153,20 @@ describe('DealService', () => {
         vehicleId: 'vehicle-123',
         dealValueCents: 3000000,
       };
-      mockPrismaService.customer.findUnique.mockResolvedValue(mockCustomer);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(mockVehicle);
+      mockPrismaService.customer.findFirst.mockResolvedValue({
+        ...mockCustomer,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue({
+        ...mockVehicle,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.deal.create.mockResolvedValue({
         ...mockDealWithRelations,
         leadId: null,
       });
 
-      const result = await service.create(dtoWithoutLead);
+      const result = await service.create(dtoWithoutLead, 'user-123', ORG_ID);
 
       expect(result).toBeDefined();
       expect(mockPrismaService.deal.create).toHaveBeenCalled();
@@ -147,7 +178,7 @@ describe('DealService', () => {
       const mockDeals = [mockDealWithRelations];
       mockPrismaService.$transaction.mockResolvedValue([mockDeals, 1]);
 
-      const result = await service.findAll({ page: 1, limit: 10 });
+      const result = await service.findAll({ page: 1, limit: 10 }, 'org-1');
 
       expect(result).toEqual({
         items: mockDeals,
@@ -162,7 +193,7 @@ describe('DealService', () => {
       const mockDeals = [mockDealWithRelations];
       mockPrismaService.$transaction.mockResolvedValue([mockDeals, 1]);
 
-      await service.findAll({ status: 'pending', page: 1, limit: 10 });
+      await service.findAll({ status: 'pending', page: 1, limit: 10 }, 'org-1');
 
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
     });
@@ -171,7 +202,10 @@ describe('DealService', () => {
       const mockDeals = [mockDealWithRelations];
       mockPrismaService.$transaction.mockResolvedValue([mockDeals, 1]);
 
-      await service.findAll({ leadId: 'lead-123', page: 1, limit: 10 });
+      await service.findAll(
+        { leadId: 'lead-123', page: 1, limit: 10 },
+        'org-1',
+      );
 
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
     });
@@ -180,7 +214,7 @@ describe('DealService', () => {
       const mockDeals = [mockDealWithRelations];
       mockPrismaService.$transaction.mockResolvedValue([mockDeals, 1]);
 
-      await service.findAll({ search: 'john', page: 1, limit: 10 });
+      await service.findAll({ search: 'john', page: 1, limit: 10 }, 'org-1');
 
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
     });
@@ -188,21 +222,24 @@ describe('DealService', () => {
 
   describe('findOne', () => {
     it('should return a deal by ID', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
-
-      const result = await service.findOne('deal-123');
-
-      expect(result).toEqual(mockDealWithRelations);
-      expect(mockPrismaService.deal.findUnique).toHaveBeenCalledWith({
-        where: { id: 'deal-123' },
-        include: expect.any(Object),
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
       });
+
+      const result = await service.findOne('deal-123', ORG_ID);
+
+      expect(result).toEqual({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
+      expect(mockPrismaService.deal.findUnique).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if deal not found', async () => {
       mockPrismaService.deal.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('deal-999')).rejects.toThrow(
+      await expect(service.findOne('deal-999', ORG_ID)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -215,13 +252,16 @@ describe('DealService', () => {
     };
 
     it('should update a deal successfully', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.deal.update.mockResolvedValue({
         ...mockDealWithRelations,
         ...updateDto,
       });
 
-      const result = await service.update('deal-123', updateDto);
+      const result = await service.update('deal-123', updateDto, ORG_ID);
 
       expect(result.dealValueCents).toBe(3500000);
       expect(result.notes).toBe('Updated deal');
@@ -230,57 +270,70 @@ describe('DealService', () => {
     it('should throw NotFoundException if deal not found', async () => {
       mockPrismaService.deal.findUnique.mockResolvedValue(null);
 
-      await expect(service.update('deal-999', updateDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update('deal-999', updateDto, ORG_ID),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should validate status transitions', async () => {
       const invalidUpdate = { status: 'pending' };
       mockPrismaService.deal.findUnique.mockResolvedValue({
         ...mockDealWithRelations,
+        organizationId: ORG_ID,
         status: 'closed_won',
       });
 
-      await expect(service.update('deal-123', invalidUpdate)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.update('deal-123', invalidUpdate, ORG_ID),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if customer not found when updating customerId', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
-      mockPrismaService.customer.findUnique.mockResolvedValue(null);
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.customer.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update('deal-123', { customerId: 'customer-999' }),
+        service.update('deal-123', { customerId: 'customer-999' }, ORG_ID),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if vehicle not found when updating vehicleId', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
-      mockPrismaService.vehicle.findUnique.mockResolvedValue(null);
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.vehicle.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update('deal-123', { vehicleId: 'vehicle-999' }),
+        service.update('deal-123', { vehicleId: 'vehicle-999' }, ORG_ID),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if lead not found when updating leadId', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
-      mockPrismaService.lead.findUnique.mockResolvedValue(null);
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
+      mockPrismaService.lead.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update('deal-123', { leadId: 'lead-999' }),
+        service.update('deal-123', { leadId: 'lead-999' }, ORG_ID),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('remove', () => {
     it('should delete a deal successfully', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.deal.delete.mockResolvedValue(mockDeal);
 
-      const result = await service.remove('deal-123');
+      const result = await service.remove('deal-123', ORG_ID);
 
       expect(result).toEqual({ message: 'Deal deleted successfully' });
       expect(mockPrismaService.deal.delete).toHaveBeenCalledWith({
@@ -291,7 +344,7 @@ describe('DealService', () => {
     it('should throw NotFoundException if deal not found', async () => {
       mockPrismaService.deal.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove('deal-999')).rejects.toThrow(
+      await expect(service.remove('deal-999', ORG_ID)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -299,7 +352,10 @@ describe('DealService', () => {
 
   describe('win', () => {
     it('should mark a deal as won successfully', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.deal.update.mockResolvedValue({
         ...mockDealWithRelations,
         status: 'closed_won',
@@ -307,7 +363,7 @@ describe('DealService', () => {
         closedById: 'user-123',
       });
 
-      const result = await service.win('deal-123', 'user-123');
+      const result = await service.win('deal-123', 'user-123', ORG_ID);
 
       expect(result.status).toBe('closed_won');
       expect(result.closedAt).toBeDefined();
@@ -317,26 +373,30 @@ describe('DealService', () => {
     it('should throw NotFoundException if deal not found', async () => {
       mockPrismaService.deal.findUnique.mockResolvedValue(null);
 
-      await expect(service.win('deal-999', 'user-123')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.win('deal-999', 'user-123', ORG_ID),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException if deal is not pending', async () => {
       mockPrismaService.deal.findUnique.mockResolvedValue({
         ...mockDealWithRelations,
+        organizationId: ORG_ID,
         status: 'closed_lost',
       });
 
-      await expect(service.win('deal-123', 'user-123')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.win('deal-123', 'user-123', ORG_ID),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('lose', () => {
     it('should mark a deal as lost successfully', async () => {
-      mockPrismaService.deal.findUnique.mockResolvedValue(mockDealWithRelations);
+      mockPrismaService.deal.findUnique.mockResolvedValue({
+        ...mockDealWithRelations,
+        organizationId: ORG_ID,
+      });
       mockPrismaService.deal.update.mockResolvedValue({
         ...mockDealWithRelations,
         status: 'closed_lost',
@@ -344,7 +404,7 @@ describe('DealService', () => {
         closedById: 'user-123',
       });
 
-      const result = await service.lose('deal-123', 'user-123');
+      const result = await service.lose('deal-123', 'user-123', ORG_ID);
 
       expect(result.status).toBe('closed_lost');
       expect(result.closedAt).toBeDefined();
@@ -354,20 +414,21 @@ describe('DealService', () => {
     it('should throw NotFoundException if deal not found', async () => {
       mockPrismaService.deal.findUnique.mockResolvedValue(null);
 
-      await expect(service.lose('deal-999', 'user-123')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.lose('deal-999', 'user-123', ORG_ID),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException if deal is not pending', async () => {
       mockPrismaService.deal.findUnique.mockResolvedValue({
         ...mockDealWithRelations,
+        organizationId: ORG_ID,
         status: 'closed_won',
       });
 
-      await expect(service.lose('deal-123', 'user-123')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.lose('deal-123', 'user-123', ORG_ID),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

@@ -5,63 +5,72 @@ import { queryKeys } from './query-keys';
 // Types
 interface Vehicle {
   id: string;
+  locationId: string;
   vin: string;
   make: string;
   model: string;
   year: number;
-  color: string;
-  mileage: number;
-  licensePlate: string;
-  locationId: string;
-  dailyRate: number;
-  status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'RETIRED';
-  fuelType: string;
-  transmission: string;
-  seats: number;
-  features: string[];
-  images: string[];
+  trim: string | null;
+  bodyType: string | null;
+  exteriorColor: string | null;
+  interiorColor: string | null;
+  transmission: string | null;
+  fuelType: string | null;
+  mileage: number | null;
+  dailyRateCents: number;
+  weeklyRateCents: number | null;
+  monthlyRateCents: number | null;
+  features: Record<string, any> | null;
+  imageUrls: string[];
+  isAvailableForRent: boolean;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 interface VehicleFilters {
+  search?: string;
   locationId?: string;
-  status?: string;
   make?: string;
   model?: string;
-  minRate?: number;
-  maxRate?: number;
+  bodyType?: string;
   fuelType?: string;
   transmission?: string;
-  minSeats?: number;
-}
-
-interface AvailabilityQuery {
-  startDate: string;
-  endDate: string;
-  locationId?: string;
+  isAvailableForRent?: boolean;
+  minDailyRate?: number;
+  maxDailyRate?: number;
+  minYear?: number;
+  maxYear?: number;
+  page?: number;
+  limit?: number;
+  sortBy?: 'createdAt' | 'year' | 'dailyRateCents' | 'mileage' | 'make';
+  sortOrder?: 'asc' | 'desc';
 }
 
 interface CreateVehicleData {
+  locationId: string;
   vin: string;
   make: string;
   model: string;
   year: number;
-  color: string;
-  mileage: number;
-  licensePlate: string;
-  locationId: string;
-  dailyRate: number;
-  fuelType: string;
-  transmission: string;
-  seats: number;
-  features?: string[];
-  images?: string[];
+  trim?: string;
+  bodyType?: string;
+  exteriorColor?: string;
+  interiorColor?: string;
+  transmission?: string;
+  fuelType?: string;
+  mileage?: number;
+  dailyRateCents: number;
+  weeklyRateCents?: number;
+  monthlyRateCents?: number;
+  features?: Record<string, boolean>;
+  imageUrls?: string[];
+  isAvailableForRent?: boolean;
+  notes?: string;
 }
 
 interface UpdateVehicleData extends Partial<CreateVehicleData> {
   id: string;
-  status?: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'RETIRED';
 }
 
 // Query: Get All Vehicles (with filters)
@@ -88,16 +97,24 @@ export function useVehicle(id: string) {
 }
 
 // Query: Check Vehicle Availability
-export function useVehicleAvailability(vehicleId: string, dates?: AvailabilityQuery) {
+export function useVehicleAvailability(vehicleId: string, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: queryKeys.vehicles.availability(vehicleId, dates),
+    queryKey: queryKeys.vehicles.availability(vehicleId, { startDate, endDate }),
     queryFn: async () => {
-      const response = await apiClient.get(`/vehicles/${vehicleId}/availability`, {
-        params: dates,
+      const response = await apiClient.post('/vehicles/check-availability', {
+        vehicleId,
+        startDate,
+        endDate,
       });
-      return response.data.data as { available: boolean; conflictingBookings?: any[] };
+      return response.data.data as {
+        vehicleId: string;
+        startDate: string;
+        endDate: string;
+        isAvailable: boolean;
+        conflictingBookings?: any[];
+      };
     },
-    enabled: !!vehicleId && !!dates,
+    enabled: !!vehicleId && !!startDate && !!endDate,
   });
 }
 

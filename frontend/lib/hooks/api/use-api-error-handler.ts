@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { ApiError } from '@/lib/api-client';
 
 export function useGlobalErrorHandler() {
   const queryClient = useQueryClient();
@@ -9,28 +10,21 @@ export function useGlobalErrorHandler() {
       if (event.type === 'updated' && event.query.state.status === 'error') {
         const error = event.query.state.error;
 
-        // Handle specific error types
-        if (error instanceof Error) {
-          // 401 Unauthorized - redirect to login
-          if ('response' in error && (error as any).response?.status === 401) {
+        // Handle our structured API errors
+        if (error instanceof ApiError) {
+          if (error.status === 401) {
             console.warn('Unauthorized - redirecting to login');
             window.location.href = '/auth/login';
             return;
           }
 
-          // 403 Forbidden - show permission error
-          if ('response' in error && (error as any).response?.status === 403) {
+          if (error.status === 403) {
             console.error('Permission denied:', error);
-            // TODO: Show toast notification when UI library is integrated
-            // toast.error('You do not have permission to perform this action');
             return;
           }
 
-          // Network errors
-          if (error.message === 'Network Error') {
+          if (error.code === 'NETWORK_ERROR' || error.status === 0) {
             console.error('Network error - user may be offline');
-            // TODO: Show toast notification
-            // toast.error('Unable to connect to server. Please check your connection.');
             return;
           }
         }

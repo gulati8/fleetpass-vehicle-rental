@@ -56,16 +56,16 @@ export function CustomerBookingHistory({
   return (
     <div className="space-y-3">
       {bookings.map((booking) => {
-        const startDate = new Date(booking.startDate).toLocaleDateString('en-US', {
+        const startDate = new Date(booking.pickupDatetime).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
         });
-        const endDate = new Date(booking.endDate).toLocaleDateString('en-US', {
+        const endDate = new Date(booking.dropoffDatetime).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
           year: 'numeric',
         });
-        const totalAmount = (booking.totalAmountCents / 100).toFixed(2);
+        const totalAmount = (booking.totalCents / 100).toFixed(2);
 
         // Status configuration
         const statusConfig = {

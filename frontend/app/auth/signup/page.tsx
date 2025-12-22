@@ -22,16 +22,13 @@ export default function SignupPage() {
     e.preventDefault();
 
     try {
-      // Note: Backend expects fullName and role, adjust data structure
-      const signupData = {
+      await signupMutation.mutateAsync({
         email: formData.email,
         password: formData.password,
-        fullName: `${formData.firstName} ${formData.lastName}`,
-        phone: '', // TODO: Add phone field to form
-        role: 'DEALER' as const,
-      };
-
-      await signupMutation.mutateAsync(signupData);
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        organizationName: formData.organizationName,
+      });
 
       // Cookie is automatically set by browser
       // Redirect to dealer dashboard

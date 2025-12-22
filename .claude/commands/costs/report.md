@@ -19,6 +19,24 @@ Generate a comprehensive cost and performance analysis.
    - List all state files in `.claude/state/`
    - Aggregate metrics across all orchestrations
    - Provide summary statistics
+3. Parse `.claude/logs/orchestration.jsonl` for `subagent_start` / `subagent_complete` pairs:
+   - Group by agent name
+   - Count invocations
+   - Compute durations (timestamp diff between start/complete with same id)
+   - Detect long-running or high-frequency agents
+4. Parse Bash hooks (`bash_start` / `bash_complete`) to surface command counts and failures (status != 0).
+
+### Log Format Reference
+Each Task invocation emits:
+```json
+{"timestamp":"2024-12-18T12:34:56-08:00","event":"subagent_start","tool":"Task","agent":"code-writer","model":"sonnet","task_summary":"Implement checkout flow","id":"abc123"}
+{"timestamp":"2024-12-18T12:35:22-08:00","event":"subagent_complete","tool":"Task","agent":"code-writer","model":"sonnet","task_summary":"Implement checkout flow","status":"complete","id":"abc123"}
+```
+Each Bash command emits:
+```json
+{"timestamp":"2024-12-18T12:34:56-08:00","event":"bash_start","tool":"Bash","id":"<hash>","command":"npm test"}
+{"timestamp":"2024-12-18T12:35:02-08:00","event":"bash_complete","tool":"Bash","id":"<hash>","command":"npm test","status":1}
+```
 
 ## Cost Estimation
 
@@ -71,6 +89,11 @@ Estimated Cost = (input_tokens * input_price + output_tokens * output_price) / 1
 - **Most expensive orchestration**: [task-name] ($X.XX)
 - **Most token-intensive agent**: [agent-name] (N tokens avg)
 - **Cost trend**: [Increasing/Stable/Decreasing]
+- **Longest-running agent**: [agent-name] (avg duration)
+- **Heaviest agent by count**: [agent-name] (invocations)
+
+### Helper (optional)
+- Run `.claude/skills/state-management/utilities/log-summary.sh .claude/logs/orchestration.jsonl` to generate a quick agent usage/duration table before writing the report.
 
 ### Recommendations
 

@@ -18,7 +18,58 @@ export class LeadService {
 
   constructor(private prisma: PrismaService) {}
 
-  async create(createLeadDto: CreateLeadDto, createdById?: string) {
+  private async getScopedLead(id: string, organizationId: string) {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        deals: {
+          include: {
+            customer: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!lead || lead.organizationId !== organizationId) {
+      this.logger.warn('Lead not found or unauthorized', {
+        leadId: id,
+        organizationId,
+      });
+      throw new NotFoundException(`Lead with ID ${id} not found`);
+    }
+
+    return lead;
+  }
+
+  async create(
+    createLeadDto: CreateLeadDto,
+    createdById: string,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Creating new lead', {
       customerEmail: createLeadDto.customerEmail,
       customerId: createLeadDto.customerId,
@@ -27,8 +78,11 @@ export class LeadService {
     try {
       // Validate customer exists if customerId provided
       if (createLeadDto.customerId) {
-        const customer = await this.prisma.customer.findUnique({
-          where: { id: createLeadDto.customerId },
+        const customer = await this.prisma.customer.findFirst({
+          where: {
+            id: createLeadDto.customerId,
+            organizationId,
+          },
         });
 
         if (!customer) {
@@ -41,8 +95,11 @@ export class LeadService {
 
       // Validate vehicle exists if vehicleInterestId provided
       if (createLeadDto.vehicleInterestId) {
-        const vehicle = await this.prisma.vehicle.findUnique({
-          where: { id: createLeadDto.vehicleInterestId },
+        const vehicle = await this.prisma.vehicle.findFirst({
+          where: {
+            id: createLeadDto.vehicleInterestId,
+            location: { organizationId },
+          },
         });
 
         if (!vehicle) {
@@ -56,6 +113,7 @@ export class LeadService {
       const lead = await this.prisma.lead.create({
         data: {
           ...createLeadDto,
+          organizationId,
           createdById,
           status: 'new',
         },
@@ -96,7 +154,7 @@ export class LeadService {
     }
   }
 
-  async findAll(query: LeadQueryDto) {
+  async findAll(query: LeadQueryDto, organizationId: string) {
     const {
       search,
       status,
@@ -112,7 +170,7 @@ export class LeadService {
 
     try {
       // Build where clause
-      const where: any = {};
+      const where: any = { organizationId };
 
       // Search filter (customer name, email, phone)
       if (search) {
@@ -213,50 +271,11 @@ export class LeadService {
     }
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, organizationId: string) {
     this.logger.logWithFields('debug', 'Finding lead by ID', { leadId: id });
 
     try {
-      const lead = await this.prisma.lead.findUnique({
-        where: { id },
-        include: {
-          customer: true,
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              role: true,
-            },
-          },
-          createdBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          deals: {
-            include: {
-              customer: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (!lead) {
-        this.logger.warn('Lead not found', { leadId: id });
-        throw new NotFoundException(`Lead with ID ${id} not found`);
-      }
+      const lead = await this.getScopedLead(id, organizationId);
 
       this.logger.logWithFields('debug', 'Lead retrieved', { leadId: id });
 
@@ -270,12 +289,16 @@ export class LeadService {
     }
   }
 
-  async update(id: string, updateLeadDto: UpdateLeadDto) {
+  async update(
+    id: string,
+    updateLeadDto: UpdateLeadDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Updating lead', { leadId: id });
 
     try {
       // Verify lead exists
-      const existingLead = await this.findOne(id);
+      const existingLead = await this.getScopedLead(id, organizationId);
 
       // Validate status transitions
       if (updateLeadDto.status) {
@@ -284,8 +307,11 @@ export class LeadService {
 
       // If customer is being changed, validate
       if (updateLeadDto.customerId) {
-        const customer = await this.prisma.customer.findUnique({
-          where: { id: updateLeadDto.customerId },
+        const customer = await this.prisma.customer.findFirst({
+          where: {
+            id: updateLeadDto.customerId,
+            organizationId,
+          },
         });
 
         if (!customer) {
@@ -295,8 +321,11 @@ export class LeadService {
 
       // If vehicle interest is being changed, validate
       if (updateLeadDto.vehicleInterestId) {
-        const vehicle = await this.prisma.vehicle.findUnique({
-          where: { id: updateLeadDto.vehicleInterestId },
+        const vehicle = await this.prisma.vehicle.findFirst({
+          where: {
+            id: updateLeadDto.vehicleInterestId,
+            location: { organizationId },
+          },
         });
 
         if (!vehicle) {
@@ -358,12 +387,12 @@ export class LeadService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, organizationId: string) {
     this.logger.logWithFields('info', 'Deleting lead', { leadId: id });
 
     try {
       // Verify lead exists
-      await this.findOne(id);
+      await this.getScopedLead(id, organizationId);
 
       await this.prisma.lead.delete({
         where: { id },
@@ -385,7 +414,11 @@ export class LeadService {
     }
   }
 
-  async assign(id: string, assignLeadDto: AssignLeadDto) {
+  async assign(
+    id: string,
+    assignLeadDto: AssignLeadDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Assigning lead', {
       leadId: id,
       assignedToId: assignLeadDto.assignedToId,
@@ -393,11 +426,14 @@ export class LeadService {
 
     try {
       // Verify lead exists
-      await this.findOne(id);
+      await this.getScopedLead(id, organizationId);
 
       // Validate user exists
-      const user = await this.prisma.user.findUnique({
-        where: { id: assignLeadDto.assignedToId },
+      const user = await this.prisma.user.findFirst({
+        where: {
+          id: assignLeadDto.assignedToId,
+          organizationId,
+        },
       });
 
       if (!user || !user.isActive) {
@@ -447,14 +483,18 @@ export class LeadService {
     }
   }
 
-  async convert(id: string, convertLeadDto: ConvertLeadDto) {
+  async convert(
+    id: string,
+    convertLeadDto: ConvertLeadDto,
+    organizationId: string,
+  ) {
     this.logger.logWithFields('info', 'Converting lead to deal', {
       leadId: id,
     });
 
     try {
       // Verify lead exists
-      const lead = await this.findOne(id);
+      const lead = await this.getScopedLead(id, organizationId);
 
       // Cannot convert already converted lead
       if (lead.status === 'converted') {
@@ -467,8 +507,11 @@ export class LeadService {
       }
 
       // Validate vehicle exists
-      const vehicle = await this.prisma.vehicle.findUnique({
-        where: { id: convertLeadDto.vehicleId },
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: {
+          id: convertLeadDto.vehicleId,
+          location: { organizationId },
+        },
       });
 
       if (!vehicle) {
@@ -476,7 +519,7 @@ export class LeadService {
       }
 
       // Determine customerId (from lead or create placeholder)
-      let customerId = lead.customerId;
+      const customerId = lead.customerId;
       if (!customerId) {
         // If lead doesn't have a customer, we need one for the deal
         // In a real system, this would create a customer from lead info
@@ -496,6 +539,7 @@ export class LeadService {
             dealValueCents: convertLeadDto.dealValueCents,
             status: 'pending',
             notes: convertLeadDto.notes,
+            organizationId,
           },
           include: {
             customer: {

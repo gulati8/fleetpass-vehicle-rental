@@ -142,7 +142,7 @@ RETRIES=30
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $RETRIES ]; do
-    if docker-compose -f "$COMPOSE_FILE" exec -T backend curl -f http://localhost:3001/health > /dev/null 2>&1; then
+    if docker-compose -f "$COMPOSE_FILE" exec -T backend curl -f http://localhost:3001/api/v1/health > /dev/null 2>&1; then
         log_info "Backend is healthy!"
         break
     fi

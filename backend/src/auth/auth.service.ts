@@ -28,55 +28,55 @@ export class AuthService {
   ) {}
 
   async signup(signupDto: SignupDto) {
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: signupDto.email },
-    });
+    try {
+      // Hash password
+      const passwordHash = await bcrypt.hash(signupDto.password, 12);
 
-    if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      // Create organization and user in a transaction
+      // Database unique constraint will prevent duplicates
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Create organization
+        const organization = await tx.organization.create({
+          data: {
+            name: signupDto.organizationName,
+            slug: this.generateSlug(signupDto.organizationName),
+            billingEmail: signupDto.email,
+          },
+        });
+
+        // Create user
+        const user = await tx.user.create({
+          data: {
+            email: signupDto.email,
+            passwordHash,
+            firstName: signupDto.firstName,
+            lastName: signupDto.lastName,
+            role: 'admin',
+            organizationId: organization.id,
+          },
+          include: {
+            organization: true,
+          },
+        });
+
+        return { user, organization };
+      });
+
+      // Generate JWT
+      const accessToken = this.generateToken(result.user);
+
+      return {
+        user: this.sanitizeUser(result.user),
+        organization: result.organization,
+        access_token: accessToken,
+      };
+    } catch (error) {
+      // Handle Prisma unique constraint violation (P2002)
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+        throw new ConflictException('User with this email already exists');
+      }
+      throw error;
     }
-
-    // Hash password
-    const passwordHash = await bcrypt.hash(signupDto.password, 12);
-
-    // Create organization and user in a transaction
-    const result = await this.prisma.$transaction(async (tx) => {
-      // Create organization
-      const organization = await tx.organization.create({
-        data: {
-          name: signupDto.organizationName,
-          slug: this.generateSlug(signupDto.organizationName),
-          billingEmail: signupDto.email,
-        },
-      });
-
-      // Create user
-      const user = await tx.user.create({
-        data: {
-          email: signupDto.email,
-          passwordHash,
-          firstName: signupDto.firstName,
-          lastName: signupDto.lastName,
-          role: 'admin',
-          organizationId: organization.id,
-        },
-        include: {
-          organization: true,
-        },
-      });
-
-      return { user, organization };
-    });
-
-    // Generate JWT
-    const accessToken = this.generateToken(result.user);
-
-    return {
-      user: this.sanitizeUser(result.user),
-      organization: result.organization,
-      access_token: accessToken,
-    };
   }
 
   async login(loginDto: LoginDto) {

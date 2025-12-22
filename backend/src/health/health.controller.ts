@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { Public } from '../common/decorators/public.decorator';
 
 /**
  * Health Check Controller
@@ -19,6 +20,7 @@ export class HealthController {
    * Basic health check endpoint
    * Returns overall system health and dependency status
    */
+  @Public()
   @Get()
   async check() {
     const startTime = Date.now();
@@ -79,6 +81,7 @@ export class HealthController {
    * Returns 200 if the application is running
    * Used by Kubernetes/Docker to determine if container should be restarted
    */
+  @Public()
   @Get('live')
   async liveness() {
     return {
@@ -92,6 +95,7 @@ export class HealthController {
    * Returns 200 only if the application is ready to serve traffic
    * Used by load balancers to determine if traffic should be routed to this instance
    */
+  @Public()
   @Get('ready')
   async readiness() {
     const checks = {
