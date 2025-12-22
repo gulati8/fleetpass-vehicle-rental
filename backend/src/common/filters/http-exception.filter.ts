@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiError } from '@shared/types';
+import { ApiResponse, ApiError } from '../types/api-response.types';
 import { LoggerService } from '../logger/logger.service';
 
 /**
@@ -40,7 +40,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     // Build standardized error response
-    const errorResponse: ApiError = {
+    const errorResponse: ApiResponse = {
       success: false,
       error: {
         message: Array.isArray(errorMessage) ? errorMessage[0] : errorMessage,
@@ -54,7 +54,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const shouldLogStack = status >= 500 || process.env.NODE_ENV !== 'production';
     if (shouldLogStack) {
       this.logger.error(
-        `HTTP ${status} Error: ${errorResponse.error.message}`,
+        `HTTP ${status} Error: ${errorResponse.error!.message}`,
         exception.stack,
         {
           path: request.url,
@@ -65,7 +65,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         },
       );
     } else {
-      this.logger.warn(`HTTP ${status} Error: ${errorResponse.error.message}`, {
+      this.logger.warn(`HTTP ${status} Error: ${errorResponse.error!.message}`, {
         path: request.url,
         method: request.method,
         statusCode: status,

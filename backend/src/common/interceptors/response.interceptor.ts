@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { ApiResponse } from '@shared/types';
+import { ApiResponse } from '../types/api-response.types';
 
 /**
  * Global response interceptor that wraps all successful responses
