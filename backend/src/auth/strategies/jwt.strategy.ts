@@ -27,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ]),
       ignoreExpiration: false,
       secretOrKey: configService.get('JWT_SECRET'),
+      clockTolerance: 5, // 5 seconds tolerance for clock skew
     });
   }
 

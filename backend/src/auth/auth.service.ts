@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { RefreshTokenService } from './refresh-token.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { User, Organization } from '@prisma/client';
@@ -25,9 +26,10 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private redis: RedisService,
+    private refreshTokenService: RefreshTokenService,
   ) {}
 
-  async signup(signupDto: SignupDto) {
+  async signup(signupDto: SignupDto, userAgent?: string, ipAddress?: string) {
     try {
       // Hash password
       const passwordHash = await bcrypt.hash(signupDto.password, 12);
@@ -65,10 +67,18 @@ export class AuthService {
       // Generate JWT
       const accessToken = this.generateToken(result.user);
 
+      // Generate refresh token
+      const refreshToken = await this.refreshTokenService.createRefreshToken(
+        result.user.id,
+        userAgent,
+        ipAddress,
+      );
+
       return {
         user: this.sanitizeUser(result.user),
         organization: result.organization,
         access_token: accessToken,
+        refresh_token: refreshToken,
       };
     } catch (error) {
       // Handle Prisma unique constraint violation (P2002)
@@ -79,7 +89,7 @@ export class AuthService {
     }
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, userAgent?: string, ipAddress?: string) {
     // Find user
     const user = await this.prisma.user.findUnique({
       where: { email: loginDto.email },
@@ -118,10 +128,18 @@ export class AuthService {
     // Generate JWT
     const accessToken = this.generateToken(user);
 
+    // Generate refresh token
+    const refreshToken = await this.refreshTokenService.createRefreshToken(
+      user.id,
+      userAgent,
+      ipAddress,
+    );
+
     return {
       user: this.sanitizeUser(user),
       organization: user.organization,
       access_token: accessToken,
+      refresh_token: refreshToken,
     };
   }
 
@@ -187,6 +205,56 @@ export class AuthService {
       '-' +
       Date.now().toString(36)
     );
+  }
+
+  async refreshAccessToken(
+    refreshToken: string,
+    userAgent?: string,
+    ipAddress?: string,
+  ) {
+    // Validate refresh token
+    const validation = await this.refreshTokenService.validateRefreshToken(
+      refreshToken,
+    );
+
+    if (!validation.valid || !validation.user) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Get fresh user data from database
+    const user = await this.prisma.user.findUnique({
+      where: { id: validation.user.id },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    // Generate new access token
+    const accessToken = this.generateToken(user);
+
+    return {
+      user: this.sanitizeUser(user),
+      organization: user.organization,
+      access_token: accessToken,
+    };
+  }
+
+  async logout(userId: string, refreshToken?: string) {
+    // Revoke refresh token if provided
+    if (refreshToken) {
+      await this.refreshTokenService.revokeRefreshToken(refreshToken);
+    } else {
+      // If no token provided, revoke all tokens for this user
+      await this.refreshTokenService.revokeAllUserTokens(userId);
+    }
+
+    // Clear user cache
+    const cacheKey = `${this.USER_CACHE_PREFIX}${userId}`;
+    await this.redis.del(cacheKey);
   }
 
   private async cacheUserData(user: UserWithOrganization): Promise<void> {

@@ -1,14 +1,18 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+import { RefreshTokenService } from './refresh-token.service';
+import { RefreshTokenCleanupService } from './refresh-token-cleanup.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
     PassportModule,
+    ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -20,7 +24,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    RefreshTokenService,
+    RefreshTokenCleanupService,
+    JwtStrategy,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
