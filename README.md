@@ -24,7 +24,7 @@ This will start:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001/api/v1
 
-📖 **See [DOCKER.md](DOCKER.md) for complete Docker documentation**
+📖 **See [Docker Setup Guide](docs/getting-started/docker-setup.md) for complete Docker documentation**
 
 ---
 
@@ -235,6 +235,48 @@ npm run dev    # Development server
 npm run build  # Build for production
 npm run start  # Start production server
 ```
+
+## 📚 Documentation
+
+### Getting Started
+- **[Quick Start Guide](docs/getting-started/quickstart.md)** - Get FleetPass running quickly
+- **[Docker Setup](docs/getting-started/docker-setup.md)** - Complete Docker Compose guide
+- **[Docker Testing](docs/getting-started/docker-testing.md)** - Verify your Docker setup
+
+### Deployment & Operations
+- **[Production Deployment](docs/deployment/production-guide.md)** - Deploy to production
+- **[Deployment Checklist](docs/deployment/checklist.md)** - Pre-deployment verification
+
+### Security
+- **[Security Overview](docs/security/overview.md)** - Comprehensive security guide
+- **[Initial Setup](docs/security/initial-setup.md)** - Configure secrets and environment
+- **[Security Headers](docs/security/implementation/headers.md)** - HTTP security headers
+- **[Rate Limiting](docs/security/implementation/rate-limiting.md)** - API rate limiting
+- **[Password Policy](docs/security/implementation/password-policy.md)** - Password requirements
+
+### Testing
+- **[Backend Testing](docs/testing/backend.md)** - Unit and integration tests
+- **[Authentication Testing](docs/testing/authentication.md)** - Cookie-based auth testing
+
+### API Documentation
+- **[Idempotency Quick Reference](docs/api/idempotency-quick-ref.md)** - API idempotency guide
+- **[Idempotency Implementation](docs/api/idempotency-implementation.md)** - Implementation details
+
+### Architecture & Features
+- **[API Standards](docs/architecture/api-standards.md)** - Response standardization
+- **[Vehicle Images](docs/features/vehicle-images.md)** - Vehicle image implementation
+
+### CI/CD
+- **[GitHub Actions Setup](.github/CICD_SETUP.md)** - CI/CD pipeline configuration
+
+### Component Documentation
+- **[Backend Implementation Docs](backend/docs/)** - Database, logging, fail-safe systems
+- **[Frontend Design System](frontend/DESIGN_SYSTEM.md)** - UI component guidelines
+- **[React Query Guide](frontend/REACT_QUERY_GUIDE.md)** - Data fetching patterns
+- **[E2E Tests](e2e-tests/README.md)** - End-to-end testing guide
+- **[Shared Types](shared/types/README.md)** - TypeScript type definitions
+
+---
 
 ## 🎉 Demo Completed
 
