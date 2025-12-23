@@ -73,9 +73,28 @@ model User {
   createdLeads    Lead[] @relation("LeadCreatedBy")
   assignedLeads   Lead[] @relation("LeadAssignedTo")
   closedDeals     Deal[] @relation("DealClosedBy")
+  refreshTokens   RefreshToken[]
 
   @@index([organizationId])
   @@index([email])
+}
+
+// Refresh tokens for secure authentication
+model RefreshToken {
+  id          String    @id @default(uuid())
+  tokenHash   String    @unique
+  userId      String
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  userAgent   String?
+  ipAddress   String?
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, revokedAt])
 }
 
 // Vehicles
