@@ -2,7 +2,7 @@
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
-      "Bash(*)",
+      "Bash",
       "WebSearch",
       "Write(*)",
       "Edit(*)",
