@@ -157,16 +157,9 @@ FleetPass/
 - ✅ Docker Compose development environment
 - ✅ Hot reload for frontend and backend
 
-## 🚧 What's Next
+## 🚧 Roadmap
 
-The following features are planned but not yet implemented:
-
-- Vehicle Management (CRUD)
-- Customer Management
-- Booking System with Mock Stripe
-- Mock KYC Integration
-- Vehicle Search & Filtering
-- Dealer Analytics
+For planned features, improvements, and technical tasks, see **[TODO.md](TODO.md)**
 
 ## 📝 API Endpoints
 
