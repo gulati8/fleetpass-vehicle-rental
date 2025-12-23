@@ -9,8 +9,8 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Don't copy source code - it comes from volumes!
+# This allows hot reload to work properly
 
 # Expose port
 EXPOSE 3000

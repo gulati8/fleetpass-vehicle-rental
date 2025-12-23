@@ -221,7 +221,7 @@ export default function VehicleDetailPage() {
                     <div>
                       <p className="text-sm text-neutral-500 mb-1">Mileage</p>
                       <p className="font-medium text-neutral-900">
-                        {vehicle.mileage.toLocaleString()} mi
+                        {vehicle.mileage?.toLocaleString() || 'N/A'} mi
                       </p>
                     </div>
                   )}

@@ -40,6 +40,14 @@ export {
   useDeleteVehicle,
 } from './use-vehicles';
 
+// Vehicle Images
+export {
+  useUploadVehicleImage,
+  useDeleteVehicleImage,
+  useSetPrimaryVehicleImage,
+  useReorderVehicleImages,
+} from './use-vehicle-images';
+
 // Customers
 export {
   useCustomers,

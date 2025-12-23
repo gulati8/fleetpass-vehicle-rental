@@ -116,6 +116,7 @@ export default function EditVehiclePage() {
           <CardContent className="p-6 md:p-8">
             <VehicleForm
               mode="edit"
+              vehicleId={vehicleId}
               defaultValues={apiFormatToFormData(vehicle)}
               onSubmit={handleSubmit}
               onCancel={handleCancel}

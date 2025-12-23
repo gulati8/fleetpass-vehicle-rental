@@ -9,7 +9,26 @@ import {
   UseGuards,
   Request,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import type { Request as ExpressRequest } from 'express';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { diskStorage } = require('multer');
+
+// Multer file type interface
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer: Buffer;
+}
 import { VehicleService } from './vehicle.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
@@ -77,6 +96,68 @@ export class VehicleController {
     return this.vehicleService.checkAvailability(
       req.user.organizationId,
       checkAvailabilityDto,
+    );
+  }
+
+  @Post(':id/images')
+  @UseInterceptors(
+    FilesInterceptor('images', 10, {
+      storage: diskStorage({
+        destination: './uploads/vehicles',
+        filename: (
+          req: ExpressRequest,
+          file: MulterFile,
+          cb: (error: Error | null, filename: string) => void,
+        ) => {
+          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          const ext = file.mimetype.split('/')[1];
+          cb(null, `${uniqueSuffix}.${ext}`);
+        },
+      }),
+      fileFilter: (
+        req: ExpressRequest,
+        file: MulterFile,
+        cb: (error: Error | null, acceptFile: boolean) => void,
+      ) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return cb(new Error('Only image files allowed'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    }),
+  )
+  async uploadImages(
+    @Param('id') id: string,
+    @UploadedFiles() files: MulterFile[],
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.vehicleService.addImages(id, req.user.organizationId, files);
+  }
+
+  @Delete(':id/images')
+  async deleteImage(
+    @Param('id') id: string,
+    @Body('imageUrl') imageUrl: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.vehicleService.deleteImage(
+      id,
+      req.user.organizationId,
+      imageUrl,
+    );
+  }
+
+  @Patch(':id/images/reorder')
+  async reorderImages(
+    @Param('id') id: string,
+    @Body('imageUrls') imageUrls: string[],
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.vehicleService.reorderImages(
+      id,
+      req.user.organizationId,
+      imageUrls,
     );
   }
 }

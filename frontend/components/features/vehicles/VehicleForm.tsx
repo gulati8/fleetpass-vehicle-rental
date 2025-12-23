@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/select/Select';
 import { Checkbox } from '@/components/ui/checkbox/Checkbox';
 import { Label } from '@/components/ui/label/Label';
 import { FormError } from '@/components/ui/form/FormError';
+import { VehicleImageUploader } from './VehicleImageUploader';
 import {
   vehicleSchema,
   type VehicleFormData,
@@ -28,6 +29,7 @@ interface VehicleFormProps {
   isLoading?: boolean;
   mode: 'create' | 'edit';
   locations: Location[];
+  vehicleId?: string; // Required in edit mode for image uploads
 }
 
 export function VehicleForm({
@@ -37,11 +39,13 @@ export function VehicleForm({
   isLoading = false,
   mode,
   locations,
+  vehicleId,
 }: VehicleFormProps) {
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<VehicleFormData>({
     resolver: zodResolver(vehicleSchema),
@@ -53,6 +57,7 @@ export function VehicleForm({
   });
 
   const isAvailable = watch('isAvailableForRent');
+  const imageUrls = watch('imageUrls') || [];
 
   const handleFormSubmit = async (data: VehicleFormData) => {
     // Convert dollar inputs to cents
@@ -165,6 +170,18 @@ export function VehicleForm({
             )}
           </div>
         </div>
+      </section>
+
+      {/* Vehicle Images */}
+      <section>
+        <h3 className="text-lg font-semibold text-neutral-900 mb-4 pb-2 border-b border-neutral-200">
+          Vehicle Images
+        </h3>
+        <VehicleImageUploader
+          vehicleId={vehicleId} // undefined in create mode
+          imageUrls={imageUrls}
+          onImagesChange={(urls) => setValue('imageUrls', urls, { shouldDirty: true })}
+        />
       </section>
 
       {/* Vehicle Details */}

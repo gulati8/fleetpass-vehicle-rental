@@ -1,7 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { getHelmetConfig } from './config/helmet.config';
 import { LoggerService } from './common/logger/logger.service';
@@ -9,7 +11,7 @@ import { LoggerService } from './common/logger/logger.service';
 async function bootstrap() {
   const logger = new LoggerService('Bootstrap');
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: new LoggerService(),
   });
 
@@ -18,6 +20,11 @@ async function bootstrap() {
 
   // Enable cookie parsing
   app.use(cookieParser());
+
+  // Serve static files for uploaded images
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // CORS configuration with stricter origin validation
   const allowedOrigins = [

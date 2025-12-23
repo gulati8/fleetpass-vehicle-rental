@@ -10,3 +10,5 @@ export { VehicleForm } from './VehicleForm';
 export { VehicleEmptyState } from './VehicleEmptyState';
 export { VehicleSkeleton } from './VehicleSkeleton';
 export { VehicleAvailabilityCalendar } from './VehicleAvailabilityCalendar';
+export { VehicleImageUploader } from './VehicleImageUploader';
+export { VehicleGallery } from './VehicleGallery';

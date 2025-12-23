@@ -6,6 +6,15 @@ node_modules/
 # Testing
 coverage/
 
+# E2E Tests (Playwright)
+e2e-tests/test-results/
+e2e-tests/playwright-report/
+e2e-tests/.env.test
+e2e-tests/playwright/.auth/
+
+# Uploads (user-generated content)
+backend/uploads/
+
 # Production
 build/
 dist/

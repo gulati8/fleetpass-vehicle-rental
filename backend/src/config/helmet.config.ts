@@ -8,13 +8,19 @@ export const getHelmetConfig = (): HelmetOptions => {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   return {
+    // Cross-Origin-Resource-Policy - allow cross-origin in dev for images
+    crossOriginResourcePolicy: isDevelopment
+      ? { policy: 'cross-origin' }
+      : { policy: 'same-origin' },
     // Content Security Policy - prevents XSS attacks
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for Tailwind CSS
-        imgSrc: ["'self'", 'data:', 'https:'],
+        imgSrc: isDevelopment
+          ? ["'self'", 'data:', 'https:', 'http://localhost:3001'] // Allow backend images in dev
+          : ["'self'", 'data:', 'https:'],
         connectSrc: isDevelopment
           ? ["'self'", 'http://localhost:3000', 'ws://localhost:3000'] // Allow HMR in dev
           : ["'self'"],

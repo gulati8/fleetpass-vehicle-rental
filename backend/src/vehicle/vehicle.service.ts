@@ -555,4 +555,153 @@ export class VehicleService {
       throw error;
     }
   }
+
+  async addImages(
+    vehicleId: string,
+    organizationId: string,
+    files: Array<{ filename: string; size: number; mimetype: string }>,
+  ) {
+    this.logger.logWithFields('info', 'Adding images to vehicle', {
+      vehicleId,
+      organizationId,
+      fileCount: files.length,
+    });
+
+    try {
+      // Verify ownership
+      const vehicle = await this.findOne(vehicleId, organizationId);
+
+      // Generate URLs
+      const baseUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+      const newUrls = files.map(
+        (f) => `${baseUrl}/uploads/vehicles/${f.filename}`,
+      );
+
+      // Update vehicle
+      const updated = await this.prisma.vehicle.update({
+        where: { id: vehicleId },
+        data: {
+          imageUrls: [...(vehicle.imageUrls || []), ...newUrls],
+        },
+      });
+
+      this.logger.logWithFields('info', 'Images added successfully', {
+        vehicleId,
+        organizationId,
+        imageCount: newUrls.length,
+      });
+
+      return { imageUrls: updated.imageUrls };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Failed to add images', String(error), {
+        vehicleId,
+        organizationId,
+        fileCount: files.length,
+      });
+      throw error;
+    }
+  }
+
+  async deleteImage(
+    vehicleId: string,
+    organizationId: string,
+    imageUrl: string,
+  ) {
+    this.logger.logWithFields('info', 'Deleting image from vehicle', {
+      vehicleId,
+      organizationId,
+      imageUrl,
+    });
+
+    try {
+      const vehicle = await this.findOne(vehicleId, organizationId);
+
+      // Remove from array
+      const updated = await this.prisma.vehicle.update({
+        where: { id: vehicleId },
+        data: {
+          imageUrls: (vehicle.imageUrls || []).filter(
+            (url) => url !== imageUrl,
+          ),
+        },
+      });
+
+      // Delete file from disk
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const filename = imageUrl.split('/').pop();
+        const filePath = path.join('./uploads/vehicles', filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          this.logger.logWithFields('debug', 'File deleted from disk', {
+            filePath,
+          });
+        }
+      } catch (fileError) {
+        this.logger.error('Failed to delete file from disk', String(fileError), {
+          imageUrl,
+        });
+        // Continue even if file deletion fails
+      }
+
+      this.logger.logWithFields('info', 'Image deleted successfully', {
+        vehicleId,
+        organizationId,
+      });
+
+      return { imageUrls: updated.imageUrls };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Failed to delete image', String(error), {
+        vehicleId,
+        organizationId,
+        imageUrl,
+      });
+      throw error;
+    }
+  }
+
+  async reorderImages(
+    vehicleId: string,
+    organizationId: string,
+    newOrder: string[],
+  ) {
+    this.logger.logWithFields('info', 'Reordering vehicle images', {
+      vehicleId,
+      organizationId,
+      imageCount: newOrder.length,
+    });
+
+    try {
+      // Verify ownership
+      await this.findOne(vehicleId, organizationId);
+
+      const updated = await this.prisma.vehicle.update({
+        where: { id: vehicleId },
+        data: { imageUrls: newOrder },
+      });
+
+      this.logger.logWithFields('info', 'Images reordered successfully', {
+        vehicleId,
+        organizationId,
+      });
+
+      return { imageUrls: updated.imageUrls };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Failed to reorder images', String(error), {
+        vehicleId,
+        organizationId,
+      });
+      throw error;
+    }
+  }
 }
