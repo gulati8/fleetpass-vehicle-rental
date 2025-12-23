@@ -65,8 +65,5 @@ prisma/migrations/
 *.tsbuildinfo
 tmp/
 
-
 # CommandDeck orchestrator system
 .claude/
-CLAUDE.md
-.claude.*
