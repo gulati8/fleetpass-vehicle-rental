@@ -1,56 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { queryKeys } from './query-keys';
-
-// Types
-interface Booking {
-  id: string;
-  customerId: string;
-  vehicleId: string;
-  locationId: string;
-  startDate: string;
-  endDate: string;
-  dailyRate: number;
-  totalAmount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
-  paymentStatus: 'PENDING' | 'PAID' | 'REFUNDED' | 'FAILED';
-  pickupTime?: string;
-  returnTime?: string;
-  mileageStart?: number;
-  mileageEnd?: number;
-  additionalDrivers?: string[];
-  specialRequests?: string;
-  cancellationReason?: string;
-  createdAt: string;
-  updatedAt: string;
-  customer?: any;
-  vehicle?: any;
-  location?: any;
-}
-
-interface BookingFilters {
-  customerId?: string;
-  vehicleId?: string;
-  locationId?: string;
-  status?: string;
-  paymentStatus?: string;
-  startDate?: string;
-  endDate?: string;
-}
-
-interface CreateBookingData {
-  customerId: string;
-  vehicleId: string;
-  locationId: string;
-  startDate: string;
-  endDate: string;
-  additionalDrivers?: string[];
-  specialRequests?: string;
-}
-
-interface UpdateBookingData extends Partial<CreateBookingData> {
-  id: string;
-}
+import type {
+  Booking,
+  BookingWithRelations,
+  CreateBookingRequest,
+  UpdateBookingRequest,
+  BookingFilters,
+} from '@shared/types';
 
 // Query: Get All Bookings (with filters)
 export function useBookings(filters?: BookingFilters) {
@@ -58,7 +15,7 @@ export function useBookings(filters?: BookingFilters) {
     queryKey: queryKeys.bookings.list(filters),
     queryFn: async () => {
       const response = await apiClient.get('/bookings', { params: filters });
-      return response.data.data as Booking[];
+      return response.data.data as BookingWithRelations[];
     },
   });
 }
@@ -69,7 +26,7 @@ export function useBooking(id: string) {
     queryKey: queryKeys.bookings.detail(id),
     queryFn: async () => {
       const response = await apiClient.get(`/bookings/${id}`);
-      return response.data.data as Booking;
+      return response.data.data as BookingWithRelations;
     },
     enabled: !!id,
   });
@@ -80,14 +37,14 @@ export function useCreateBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateBookingData) => {
+    mutationFn: async (data: CreateBookingRequest) => {
       const response = await apiClient.post('/bookings', data);
       return response.data.data as Booking;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
-      // Also invalidate vehicle availability
-      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.lists() });
     },
   });
 }
@@ -97,14 +54,28 @@ export function useUpdateBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...data }: UpdateBookingData) => {
+    mutationFn: async ({ id, ...data }: UpdateBookingRequest & { id: string }) => {
       const response = await apiClient.patch(`/bookings/${id}`, data);
       return response.data.data as Booking;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
+    },
+  });
+}
+
+// Mutation: Delete Booking
+export function useDeleteBooking() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.delete(`/bookings/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
     },
   });
 }
@@ -130,14 +101,13 @@ export function useActivateBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, mileageStart }: { id: string; mileageStart: number }) => {
-      const response = await apiClient.post(`/bookings/${id}/activate`, { mileageStart });
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post(`/bookings/${id}/activate`);
       return response.data.data as Booking;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
     },
   });
 }
@@ -147,14 +117,13 @@ export function useCompleteBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, mileageEnd }: { id: string; mileageEnd: number }) => {
-      const response = await apiClient.post(`/bookings/${id}/complete`, { mileageEnd });
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post(`/bookings/${id}/complete`);
       return response.data.data as Booking;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
     },
   });
 }
@@ -164,14 +133,13 @@ export function useCancelBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
-      const response = await apiClient.post(`/bookings/${id}/cancel`, { reason });
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post(`/bookings/${id}/cancel`);
       return response.data.data as Booking;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
     },
   });
 }
