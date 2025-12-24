@@ -28,6 +28,8 @@ export class BookingService {
             location: true,
           },
         },
+        pickupLocation: true,
+        dropoffLocation: true,
       },
     });
 
@@ -412,6 +414,24 @@ export class BookingService {
                 year: true,
                 vin: true,
                 dailyRateCents: true,
+              },
+            },
+            pickupLocation: {
+              select: {
+                id: true,
+                name: true,
+                addressLine1: true,
+                city: true,
+                state: true,
+              },
+            },
+            dropoffLocation: {
+              select: {
+                id: true,
+                name: true,
+                addressLine1: true,
+                city: true,
+                state: true,
               },
             },
           },
