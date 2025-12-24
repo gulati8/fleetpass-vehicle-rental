@@ -55,14 +55,17 @@ test.describe('Booking CRUD Operations', () => {
       test.skip();
     }
 
-    // Create dates for tomorrow and next week
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
+    // Create unique dates to avoid conflicts with other tests
+    // Use timestamp to ensure uniqueness across test runs
+    const timestamp = Date.now();
+    const uniqueOffset = 7 + (timestamp % 30); // 7-37 days in future
+    const pickupDate = new Date();
+    pickupDate.setDate(pickupDate.getDate() + uniqueOffset);
+    pickupDate.setHours(10, 0, 0, 0);
 
-    const nextWeek = new Date(tomorrow);
-    nextWeek.setDate(nextWeek.getDate() + 6);
-    nextWeek.setHours(10, 0, 0, 0);
+    const dropoffDate = new Date(pickupDate);
+    dropoffDate.setDate(dropoffDate.getDate() + 3); // 3-day rental
+    dropoffDate.setHours(14, 0, 0, 0); // Different time to avoid any edge cases
 
     const formatDateTime = (date: Date) => {
       const year = date.getFullYear();
@@ -75,14 +78,20 @@ test.describe('Booking CRUD Operations', () => {
 
     // Fill the form
     await createPage.fillBookingForm({
-      pickupDatetime: formatDateTime(tomorrow),
-      dropoffDatetime: formatDateTime(nextWeek),
+      pickupDatetime: formatDateTime(pickupDate),
+      dropoffDatetime: formatDateTime(dropoffDate),
       notes: 'E2E test booking',
     });
 
-    // Select first available options (index 1, since 0 is placeholder)
+    // Select options (avoiding index 1 which might be unavailable)
     await createPage.customerSelect.selectOption({ index: 1 });
-    await createPage.vehicleSelect.selectOption({ index: 1 });
+
+    // Select a vehicle from later in the list, rotating based on timestamp
+    // This helps avoid conflicts when tests run multiple times
+    const vehicleIndex = 2 + (timestamp % Math.min(4, vehicleOptions.length - 2));
+    console.log(`Selecting vehicle at index ${vehicleIndex} from ${vehicleOptions.length} options`);
+    await createPage.vehicleSelect.selectOption({ index: vehicleIndex });
+
     await createPage.pickupLocationSelect.selectOption({ index: 1 });
     await createPage.dropoffLocationSelect.selectOption({ index: 1 });
 
@@ -91,9 +100,34 @@ test.describe('Booking CRUD Operations', () => {
     // Wait for pricing to calculate
     await page.waitForTimeout(2000);
 
+    // Capture console errors
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    // Check for validation errors before submitting
+    const preSubmitErrors = await page.locator('[class*="error"], [class*="invalid"], [role="alert"]').allTextContents();
+    if (preSubmitErrors.length > 0) {
+      console.log('⚠️  Validation errors before submit:', preSubmitErrors);
+    }
+
     // Submit the form
     console.log('📝 Submitting booking form...');
     await createPage.submitBooking();
+    await page.waitForTimeout(1000);
+
+    // Check for validation errors after submitting
+    const postSubmitErrors = await page.locator('[class*="error"], [class*="invalid"], [role="alert"]').allTextContents();
+    if (postSubmitErrors.length > 0) {
+      console.log('❌ Validation errors after submit:', postSubmitErrors);
+    }
+
+    if (consoleErrors.length > 0) {
+      console.log('❌ Console errors:', consoleErrors);
+    }
 
     // Wait for navigation to detail page
     await page.waitForURL(/\/bookings\/[a-f0-9-]+/, { timeout: 10000 });
