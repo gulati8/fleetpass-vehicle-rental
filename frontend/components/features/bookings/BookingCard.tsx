@@ -30,7 +30,7 @@ export function BookingCard({ booking, onView, viewMode = 'grid' }: BookingCardP
 
   if (viewMode === 'list') {
     return (
-      <Card hover className="transition-all duration-200">
+      <Card hover className="transition-all duration-200" data-testid="booking-card">
         <CardContent className="p-6">
           <div className="flex items-center gap-6">
             {/* Booking visual indicator */}
@@ -87,7 +87,7 @@ export function BookingCard({ booking, onView, viewMode = 'grid' }: BookingCardP
 
   // Grid view
   return (
-    <Card hover className="transition-all duration-200 h-full">
+    <Card hover className="transition-all duration-200 h-full" data-testid="booking-card">
       <CardContent className="p-6 flex flex-col h-full">
         {/* Header */}
         <div className="flex items-start justify-between mb-4">

@@ -44,12 +44,22 @@ export class BookingListPage {
   }
 
   async getBookingCount(): Promise<number> {
-    await this.page.waitForTimeout(1000);
+    // Wait for bookings to load from API
+    await this.page.waitForTimeout(2000);
+    // Also wait for at least one card to appear or timeout
+    try {
+      await this.bookingCards.first().waitFor({ state: 'visible', timeout: 3000 });
+    } catch {
+      // No bookings found
+    }
     return await this.bookingCards.count();
   }
 
   async clickFirstBooking() {
-    await this.bookingCards.first().click();
+    // Click the "View Details" button inside the first booking card
+    const firstCard = this.bookingCards.first();
+    const viewButton = firstCard.getByRole('button', { name: /view details/i });
+    await viewButton.click();
   }
 }
 
