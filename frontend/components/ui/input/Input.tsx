@@ -36,11 +36,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       />
     );
 
-    if (!hasAddons) {
-      return input;
-    }
-
-    return (
+    const inputElement = !hasAddons ? input : (
       <div className="relative">
         {leftAddon && (
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
@@ -52,6 +48,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
             {rightAddon}
           </div>
+        )}
+      </div>
+    );
+
+    // If no error message, just return the input
+    if (!error || typeof error !== 'string') {
+      return inputElement;
+    }
+
+    // Wrap input with error message display
+    return (
+      <div>
+        {inputElement}
+        {typeof error === 'string' && error.length > 0 && (
+          <p className="mt-1 text-sm text-error-600">{error}</p>
         )}
       </div>
     );
