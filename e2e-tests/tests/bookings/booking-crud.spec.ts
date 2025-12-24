@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AuthHelper } from '../../utils/auth-helper';
+import { VehicleHelper, TestVehicle } from '../../utils/vehicle-helper';
 import { BookingListPage, CreateBookingPage, BookingDetailPage } from '../../pages/BookingPages';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
@@ -8,13 +9,30 @@ dotenv.config({ path: path.join(__dirname, '../../.env.test') });
 
 test.describe('Booking CRUD Operations', () => {
   let authHelper: AuthHelper;
+  let vehicleHelper: VehicleHelper;
   const testEmail = process.env.TEST_USER_EMAIL || 'test@example.com';
   const testPassword = process.env.TEST_USER_PASSWORD || 'password';
   let createdBookingId: string;
+  let testVehicle: TestVehicle;
 
   test.beforeEach(async ({ page }) => {
     authHelper = new AuthHelper();
+    vehicleHelper = new VehicleHelper();
+
+    // Login first
     await authHelper.login(page, testEmail, testPassword);
+
+    // Create a test vehicle for bookings
+    testVehicle = await vehicleHelper.createTestVehicle(page, {
+      make: 'BookingTest',
+      model: 'Vehicle',
+      year: 2024,
+    });
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Clean up test vehicle
+    await vehicleHelper.cleanup(page);
   });
 
   test('should display booking list page', async ({ page }) => {
@@ -45,27 +63,24 @@ test.describe('Booking CRUD Operations', () => {
 
     // Get available options
     const customerOptions = await createPage.customerSelect.locator('option').all();
-    const vehicleOptions = await createPage.vehicleSelect.locator('option').all();
     const locationOptions = await createPage.pickupLocationSelect.locator('option').all();
 
-    console.log(`Found ${customerOptions.length} customers, ${vehicleOptions.length} vehicles, ${locationOptions.length} locations`);
+    console.log(`Found ${customerOptions.length} customers, ${locationOptions.length} locations`);
+    console.log(`Using test vehicle: ${testVehicle.make} ${testVehicle.model} (${testVehicle.id})`);
 
-    if (customerOptions.length < 2 || vehicleOptions.length < 2 || locationOptions.length < 2) {
+    if (customerOptions.length < 2 || locationOptions.length < 2) {
       console.log('⚠️  Insufficient test data - skipping booking creation');
       test.skip();
     }
 
-    // Create unique dates to avoid conflicts with other tests
-    // Use timestamp to ensure uniqueness across test runs
-    const timestamp = Date.now();
-    const uniqueOffset = 7 + (timestamp % 30); // 7-37 days in future
+    // Create dates in the future (guaranteed no conflicts with our fresh vehicle)
     const pickupDate = new Date();
-    pickupDate.setDate(pickupDate.getDate() + uniqueOffset);
+    pickupDate.setDate(pickupDate.getDate() + 7); // 7 days from now
     pickupDate.setHours(10, 0, 0, 0);
 
     const dropoffDate = new Date(pickupDate);
     dropoffDate.setDate(dropoffDate.getDate() + 3); // 3-day rental
-    dropoffDate.setHours(14, 0, 0, 0); // Different time to avoid any edge cases
+    dropoffDate.setHours(14, 0, 0, 0);
 
     const formatDateTime = (date: Date) => {
       const year = date.getFullYear();
@@ -76,22 +91,16 @@ test.describe('Booking CRUD Operations', () => {
       return `${year}-${month}-${day}T${hours}:${minutes}`;
     };
 
-    // Fill the form
+    // Fill the form with test vehicle
     await createPage.fillBookingForm({
+      vehicleId: testVehicle.id,
       pickupDatetime: formatDateTime(pickupDate),
       dropoffDatetime: formatDateTime(dropoffDate),
-      notes: 'E2E test booking',
+      notes: 'E2E test booking with dedicated test vehicle',
     });
 
-    // Select options (avoiding index 1 which might be unavailable)
+    // Select customer and locations
     await createPage.customerSelect.selectOption({ index: 1 });
-
-    // Select a vehicle from later in the list, rotating based on timestamp
-    // This helps avoid conflicts when tests run multiple times
-    const vehicleIndex = 2 + (timestamp % Math.min(4, vehicleOptions.length - 2));
-    console.log(`Selecting vehicle at index ${vehicleIndex} from ${vehicleOptions.length} options`);
-    await createPage.vehicleSelect.selectOption({ index: vehicleIndex });
-
     await createPage.pickupLocationSelect.selectOption({ index: 1 });
     await createPage.dropoffLocationSelect.selectOption({ index: 1 });
 
