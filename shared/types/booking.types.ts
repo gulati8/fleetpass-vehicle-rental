@@ -107,11 +107,15 @@ export interface UpdateBookingRequest {
  * Booking filters for search/list endpoints
  */
 export interface BookingFilters {
+  search?: string; // Search by booking number, customer name, vehicle
   customerId?: string;
   vehicleId?: string;
+  pickupLocationId?: string;
   status?: string;
-  pickupDateFrom?: string;
-  pickupDateTo?: string;
-  dropoffDateFrom?: string;
-  dropoffDateTo?: string;
+  pickupFrom?: string;
+  pickupTo?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: 'createdAt' | 'pickupDatetime' | 'dropoffDatetime' | 'totalCents';
+  sortOrder?: 'asc' | 'desc';
 }
