@@ -196,7 +196,8 @@ export class BookingDetailPage {
   constructor(page: Page) {
     this.page = page;
     this.bookingNumber = page.locator('h1').first();
-    this.statusBadge = page.locator('[class*="badge"]').first();
+    // Status is shown in BookingStatusIndicator component, not a badge
+    this.statusBadge = page.getByText(/pending|confirmed|active|completed|cancelled/i).first();
     this.confirmButton = page.getByRole('button', { name: /confirm booking/i });
     this.activateButton = page.getByRole('button', { name: /activate rental/i });
     this.completeButton = page.getByRole('button', { name: /complete rental/i });
