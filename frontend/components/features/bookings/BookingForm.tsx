@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Calendar, MapPin, User, Car, DollarSign, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button/Button';
 import { Input } from '@/components/ui/input/Input';
@@ -10,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card/Card';
 import { useCustomers } from '@/lib/hooks/api/use-customers';
 import { useVehicles } from '@/lib/hooks/api/use-vehicles';
 import { useLocations } from '@/lib/hooks/api/use-locations';
+import { bookingFormSchema, type BookingFormData } from '@/lib/validations/booking.validation';
 import type { CreateBookingRequest } from '@shared/types';
 
 interface BookingFormProps {
@@ -27,7 +29,8 @@ export function BookingForm({
 }: BookingFormProps) {
   const [estimatedTotal, setEstimatedTotal] = useState<number | null>(null);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateBookingRequest>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<BookingFormData>({
+    resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       customerId: initialCustomerId || '',
       vehicleId: '',

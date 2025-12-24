@@ -1,0 +1,229 @@
+import { Page, Locator } from '@playwright/test';
+
+/**
+ * Page Object for Booking List Page
+ */
+export class BookingListPage {
+  readonly page: Page;
+  readonly addBookingButton: Locator;
+  readonly searchInput: Locator;
+  readonly statusFilter: Locator;
+  readonly gridViewButton: Locator;
+  readonly listViewButton: Locator;
+  readonly bookingCards: Locator;
+  readonly emptyState: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.addBookingButton = page.getByRole('button', { name: /new booking/i });
+    this.searchInput = page.getByPlaceholder(/search by booking number/i);
+    this.statusFilter = page.locator('select').filter({ hasText: /all statuses/i }).first();
+    this.gridViewButton = page.getByLabel('Grid view');
+    this.listViewButton = page.getByLabel('List view');
+    this.bookingCards = page.locator('[data-testid="booking-card"]').or(page.locator('article, .booking-card')); // Flexible selector
+    this.emptyState = page.getByText(/no bookings/i);
+  }
+
+  async goto() {
+    await this.page.goto('/bookings');
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async clickAddBooking() {
+    await this.addBookingButton.click();
+  }
+
+  async searchBookings(query: string) {
+    await this.searchInput.fill(query);
+    await this.page.waitForTimeout(500); // Debounce
+  }
+
+  async filterByStatus(status: string) {
+    await this.statusFilter.selectOption(status);
+    await this.page.waitForTimeout(500);
+  }
+
+  async getBookingCount(): Promise<number> {
+    await this.page.waitForTimeout(1000);
+    return await this.bookingCards.count();
+  }
+
+  async clickFirstBooking() {
+    await this.bookingCards.first().click();
+  }
+}
+
+/**
+ * Page Object for Create Booking Page
+ */
+export class CreateBookingPage {
+  readonly page: Page;
+  readonly customerSelect: Locator;
+  readonly vehicleSelect: Locator;
+  readonly pickupLocationSelect: Locator;
+  readonly dropoffLocationSelect: Locator;
+  readonly pickupDatetimeInput: Locator;
+  readonly dropoffDatetimeInput: Locator;
+  readonly notesTextarea: Locator;
+  readonly submitButton: Locator;
+  readonly cancelButton: Locator;
+  readonly estimatedTotal: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.customerSelect = page.locator('select[name="customerId"]');
+    this.vehicleSelect = page.locator('select[name="vehicleId"]');
+    this.pickupLocationSelect = page.locator('select[name="pickupLocationId"]');
+    this.dropoffLocationSelect = page.locator('select[name="dropoffLocationId"]');
+    this.pickupDatetimeInput = page.locator('input[name="pickupDatetime"]');
+    this.dropoffDatetimeInput = page.locator('input[name="dropoffDatetime"]');
+    this.notesTextarea = page.locator('textarea[name="notes"]');
+    this.submitButton = page.getByRole('button', { name: /create booking/i });
+    this.cancelButton = page.getByRole('button', { name: /cancel/i });
+    this.estimatedTotal = page.getByText(/estimated total/i).locator('..');
+  }
+
+  async goto(customerId?: string) {
+    const url = customerId ? `/bookings/new?customerId=${customerId}` : '/bookings/new';
+    await this.page.goto(url);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async fillBookingForm(data: {
+    customerId?: string;
+    vehicleId?: string;
+    pickupLocationId?: string;
+    dropoffLocationId?: string;
+    pickupDatetime?: string;
+    dropoffDatetime?: string;
+    notes?: string;
+  }) {
+    if (data.customerId) {
+      await this.customerSelect.selectOption(data.customerId);
+    }
+    if (data.vehicleId) {
+      await this.vehicleSelect.selectOption(data.vehicleId);
+    }
+    if (data.pickupLocationId) {
+      await this.pickupLocationSelect.selectOption(data.pickupLocationId);
+    }
+    if (data.dropoffLocationId) {
+      await this.dropoffLocationSelect.selectOption(data.dropoffLocationId);
+    }
+    if (data.pickupDatetime) {
+      await this.pickupDatetimeInput.fill(data.pickupDatetime);
+    }
+    if (data.dropoffDatetime) {
+      await this.dropoffDatetimeInput.fill(data.dropoffDatetime);
+    }
+    if (data.notes) {
+      await this.notesTextarea.fill(data.notes);
+    }
+  }
+
+  async submitBooking() {
+    await this.submitButton.click();
+  }
+
+  async getEstimatedTotal(): Promise<string | null> {
+    try {
+      return await this.estimatedTotal.textContent();
+    } catch {
+      return null;
+    }
+  }
+
+  async hasValidationError(field: string): Promise<boolean> {
+    const errorLocator = this.page.locator(`[name="${field}"]`).locator('..').getByText(/required|invalid|must be/i);
+    return await errorLocator.isVisible().catch(() => false);
+  }
+
+  async getValidationError(field: string): Promise<string | null> {
+    const errorLocator = this.page.locator(`[name="${field}"]`).locator('..').locator('.text-error-600, .text-red-600, [class*="error"]');
+    try {
+      return await errorLocator.textContent();
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Page Object for Booking Detail Page
+ */
+export class BookingDetailPage {
+  readonly page: Page;
+  readonly bookingNumber: Locator;
+  readonly statusBadge: Locator;
+  readonly confirmButton: Locator;
+  readonly activateButton: Locator;
+  readonly completeButton: Locator;
+  readonly cancelButton: Locator;
+  readonly deleteButton: Locator;
+  readonly customerName: Locator;
+  readonly vehicleName: Locator;
+  readonly totalAmount: Locator;
+  readonly pickupDate: Locator;
+  readonly dropoffDate: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.bookingNumber = page.locator('h1').first();
+    this.statusBadge = page.locator('[class*="badge"]').first();
+    this.confirmButton = page.getByRole('button', { name: /confirm booking/i });
+    this.activateButton = page.getByRole('button', { name: /activate rental/i });
+    this.completeButton = page.getByRole('button', { name: /complete rental/i });
+    this.cancelButton = page.getByRole('button', { name: /cancel booking/i });
+    this.deleteButton = page.getByRole('button', { name: /delete/i });
+    this.customerName = page.getByText(/customer/i).locator('..').locator('.font-medium').first();
+    this.vehicleName = page.getByText(/vehicle/i).locator('..').locator('.font-medium').first();
+    this.totalAmount = page.getByText(/total/i).locator('..').locator('.font-bold, .text-xl').first();
+    this.pickupDate = page.getByText(/pickup/i).locator('..').locator('.font-medium').first();
+    this.dropoffDate = page.getByText(/drop-off/i).locator('..').locator('.font-medium').first();
+  }
+
+  async goto(bookingId: string) {
+    await this.page.goto(`/bookings/${bookingId}`);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async getStatus(): Promise<string | null> {
+    return await this.statusBadge.textContent();
+  }
+
+  async confirmBooking() {
+    await this.confirmButton.click();
+    // Wait for confirmation modal
+    const confirmModalButton = this.page.getByRole('button', { name: /^confirm$/i });
+    await confirmModalButton.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async activateBooking() {
+    await this.activateButton.click();
+    const confirmModalButton = this.page.getByRole('button', { name: /^confirm$/i });
+    await confirmModalButton.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async completeBooking() {
+    await this.completeButton.click();
+    const confirmModalButton = this.page.getByRole('button', { name: /^confirm$/i });
+    await confirmModalButton.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async cancelBooking() {
+    await this.cancelButton.click();
+    const confirmModalButton = this.page.getByRole('button', { name: /^confirm$/i });
+    await confirmModalButton.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async deleteBooking() {
+    await this.deleteButton.click();
+    const deleteModalButton = this.page.getByRole('button', { name: /delete booking/i });
+    await deleteModalButton.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+}
