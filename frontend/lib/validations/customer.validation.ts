@@ -56,21 +56,21 @@ export const customerSchema = z.object({
 
   // Optional personal info
   dateOfBirth: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (use YYYY-MM-DD)')
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
+        (date) => {
+          const dob = new Date(date);
+          if (isNaN(dob.getTime())) return false;
+          const age = (new Date().getTime() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+          return age >= 18 && age <= 120;
+        },
+        { message: 'Customer must be between 18 and 120 years old' }
+      ),
+      z.literal(''),
+      z.null(),
+    ])
     .optional()
-    .nullable()
-    .refine(
-      (date) => {
-        if (!date) return true;
-        const dob = new Date(date);
-        // Check if valid date
-        if (isNaN(dob.getTime())) return false;
-        const age = (new Date().getTime() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-        return age >= 18 && age <= 120;
-      },
-      { message: 'Customer must be between 18 and 120 years old' }
-    ),
+    .nullable(),
 
   // Driver's license
   driverLicenseNumber: z
@@ -88,24 +88,24 @@ export const customerSchema = z.object({
     .nullable(),
 
   driverLicenseExpiry: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (use YYYY-MM-DD)')
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
+        (date) => {
+          const expiry = new Date(date);
+          if (isNaN(expiry.getTime())) return false;
+          // License must not be expired (compare dates only, not time)
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          expiry.setHours(0, 0, 0, 0);
+          return expiry >= today;
+        },
+        { message: 'Driver\'s license must not be expired' }
+      ),
+      z.literal(''),
+      z.null(),
+    ])
     .optional()
-    .nullable()
-    .refine(
-      (date) => {
-        if (!date) return true;
-        const expiry = new Date(date);
-        // Check if valid date
-        if (isNaN(expiry.getTime())) return false;
-        // License must not be expired (compare dates only, not time)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        expiry.setHours(0, 0, 0, 0);
-        return expiry >= today;
-      },
-      { message: 'Driver\'s license must not be expired' }
-    ),
+    .nullable(),
 });
 
 /**

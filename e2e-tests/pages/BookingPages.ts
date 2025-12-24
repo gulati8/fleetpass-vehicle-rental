@@ -127,8 +127,12 @@ export class CreateBookingPage {
 
   async getEstimatedTotal(): Promise<string | null> {
     try {
-      return await this.estimatedTotal.textContent();
+      // Look for text containing a dollar sign in the estimated total section
+      const priceElement = this.estimatedTotal.getByText(/\$/);
+      const text = await priceElement.textContent();
+      return text;
     } catch {
+      // If no price is shown yet, return null
       return null;
     }
   }
@@ -139,9 +143,22 @@ export class CreateBookingPage {
   }
 
   async getValidationError(field: string): Promise<string | null> {
-    const errorLocator = this.page.locator(`[name="${field}"]`).locator('..').locator('.text-error-600, .text-red-600, [class*="error"]');
+    // Error message is displayed in a sibling <p> tag with text-error-600 class
+    // It can be a sibling of the input directly, or of the input's wrapper div
+    const inputLocator = this.page.locator(`[name="${field}"]`);
+
+    // Try to find error as sibling of input
+    let errorLocator = inputLocator.locator('~ p.text-error-600');
+    let hasError = await errorLocator.count() > 0;
+
+    // If not found, try finding it as a sibling of the parent wrapper
+    if (!hasError) {
+      errorLocator = inputLocator.locator('.. p.text-error-600');
+    }
+
     try {
-      return await errorLocator.textContent();
+      const text = await errorLocator.textContent();
+      return text && text.trim().length > 0 ? text.trim() : null;
     } catch {
       return null;
     }

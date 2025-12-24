@@ -18,7 +18,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const hasError = Boolean(error);
     const effectiveVariant = hasError ? 'error' : variant;
 
-    return (
+    const selectElement = (
       <select
         ref={ref}
         className={cn(selectVariants({ variant: effectiveVariant, size }), className)}
@@ -39,6 +39,21 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </option>
         ))}
       </select>
+    );
+
+    // If no error message, just return the select
+    if (!error || typeof error !== 'string') {
+      return selectElement;
+    }
+
+    // Wrap select with error message display
+    return (
+      <div>
+        {selectElement}
+        {typeof error === 'string' && error.length > 0 && (
+          <p className="mt-1 text-sm text-error-600">{error}</p>
+        )}
+      </div>
     );
   }
 );

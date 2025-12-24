@@ -41,8 +41,8 @@ test.describe('Customer Form Validation', () => {
     // Check if we're still on the form (validation failed) or navigated (success)
     const currentUrl = page.url();
 
-    // Should NOT show age validation error
-    const ageError = await page.getByText(/must be.*18.*years old/i).isVisible().catch(() => false);
+    // Should NOT show age validation error (check for specific error message, not hint)
+    const ageError = await page.getByText(/must be between 18 and 120 years old/i).isVisible().catch(() => false);
 
     console.log('Current URL:', currentUrl);
     console.log('Age error visible:', ageError);
@@ -105,8 +105,8 @@ test.describe('Customer Form Validation', () => {
     await page.getByRole('button', { name: /save customer/i }).click();
     await page.waitForTimeout(1000);
 
-    // Should show age validation error
-    const ageError = await page.getByText(/must be.*18.*years/i).isVisible().catch(() => false);
+    // Should show age validation error (check for specific error message)
+    const ageError = await page.getByText(/must be between 18 and 120 years old/i).isVisible().catch(() => false);
 
     console.log('Age error visible:', ageError);
     expect(ageError).toBe(true);
@@ -188,8 +188,8 @@ test.describe('Customer Form Validation', () => {
     // Wait for potential navigation or error
     await page.waitForTimeout(2000);
 
-    // Should NOT have validation errors for these valid values
-    const ageError = await page.getByText(/must be.*18.*years old/i).isVisible().catch(() => false);
+    // Should NOT have validation errors for these valid values (check for specific error messages)
+    const ageError = await page.getByText(/must be between 18 and 120 years old/i).isVisible().catch(() => false);
     const expiryError = await page.getByText(/license.*expired/i).isVisible().catch(() => false);
 
     await page.screenshot({ path: 'test-results/customer-regression-after-submit.png', fullPage: true });
