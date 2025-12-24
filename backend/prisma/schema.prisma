@@ -47,8 +47,10 @@ model Location {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  vehicles        Vehicle[]
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vehicles              Vehicle[]
+  pickupBookings        Booking[] @relation("BookingPickupLocation")
+  dropoffBookings       Booking[] @relation("BookingDropoffLocation")
 
   @@index([organizationId])
 }
@@ -203,6 +205,8 @@ model Booking {
 
   customer                Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   vehicle                 Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  pickupLocation          Location @relation("BookingPickupLocation", fields: [pickupLocationId], references: [id], onDelete: Restrict)
+  dropoffLocation         Location @relation("BookingDropoffLocation", fields: [dropoffLocationId], references: [id], onDelete: Restrict)
   organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy               User? @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   payments                Payment[]

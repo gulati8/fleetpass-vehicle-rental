@@ -217,7 +217,7 @@ export function KYCWizard({
           customerName={customerName}
           onViewCustomer={onComplete}
           onCreateBooking={() => {
-            /* TODO: Navigate to create booking */
+            window.location.href = `/bookings/new?customerId=${customerId}`;
           }}
         />
       )}

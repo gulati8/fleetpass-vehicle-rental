@@ -67,7 +67,7 @@ export const vehicleSchema = z.object({
     .nullable(),
 
   fuelType: z
-    .enum(['gasoline', 'diesel', 'electric', 'hybrid'], {
+    .enum(['gas', 'diesel', 'electric', 'hybrid'], {
       errorMap: () => ({ message: 'Please select a valid fuel type' }),
     })
     .optional()
@@ -87,19 +87,27 @@ export const vehicleSchema = z.object({
     .min(1, 'Daily rate must be at least $1.00')
     .max(9999, 'Daily rate cannot exceed $9,999.00'),
 
-  weeklyRateCents: z.coerce
-    .number({ invalid_type_error: 'Weekly rate must be a number' })
-    .positive('Weekly rate must be greater than 0')
-    .min(0, 'Weekly rate cannot be negative')
+  weeklyRateCents: z
+    .union([
+      z.string().transform((val) => (val === '' ? null : parseFloat(val))),
+      z.number(),
+    ])
     .optional()
-    .nullable(),
+    .nullable()
+    .refine((val) => val === null || val === undefined || val > 0, {
+      message: 'Weekly rate must be greater than 0 if provided',
+    }),
 
-  monthlyRateCents: z.coerce
-    .number({ invalid_type_error: 'Monthly rate must be a number' })
-    .positive('Monthly rate must be greater than 0')
-    .min(0, 'Monthly rate cannot be negative')
+  monthlyRateCents: z
+    .union([
+      z.string().transform((val) => (val === '' ? null : parseFloat(val))),
+      z.number(),
+    ])
     .optional()
-    .nullable(),
+    .nullable()
+    .refine((val) => val === null || val === undefined || val > 0, {
+      message: 'Monthly rate must be greater than 0 if provided',
+    }),
 
   // Location and availability
   locationId: z

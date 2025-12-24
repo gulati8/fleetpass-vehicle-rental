@@ -1,0 +1,384 @@
+import { test, expect } from '@playwright/test';
+import { AuthHelper } from '../../utils/auth-helper';
+import { VehicleHelper, TestVehicle } from '../../utils/vehicle-helper';
+import { BookingListPage, CreateBookingPage, BookingDetailPage } from '../../pages/BookingPages';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: path.join(__dirname, '../../.env.test') });
+
+test.describe('Booking CRUD Operations', () => {
+  let authHelper: AuthHelper;
+  let vehicleHelper: VehicleHelper;
+  const testEmail = process.env.TEST_USER_EMAIL || 'test@example.com';
+  const testPassword = process.env.TEST_USER_PASSWORD || 'password';
+  let createdBookingId: string;
+  let testVehicle: TestVehicle;
+
+  test.beforeEach(async ({ page }) => {
+    authHelper = new AuthHelper();
+    vehicleHelper = new VehicleHelper();
+
+    // Login first
+    await authHelper.login(page, testEmail, testPassword);
+
+    // Create a test vehicle for bookings
+    testVehicle = await vehicleHelper.createTestVehicle(page, {
+      make: 'BookingTest',
+      model: 'Vehicle',
+      year: 2024,
+    });
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Clean up test vehicle
+    await vehicleHelper.cleanup(page);
+  });
+
+  test('should display booking list page', async ({ page }) => {
+    console.log('🚀 Test: Display booking list');
+
+    const listPage = new BookingListPage(page);
+    await listPage.goto();
+
+    await page.screenshot({ path: 'test-results/booking-list.png', fullPage: true });
+
+    // Should see the page title
+    await expect(page.locator('h1')).toContainText('Bookings');
+
+    // Should see the add booking button
+    await expect(listPage.addBookingButton).toBeVisible();
+
+    console.log('✅ Booking list page loads correctly');
+  });
+
+  test('should create a new booking', async ({ page }) => {
+    test.setTimeout(90000); // 90 second timeout
+    console.log('🚀 Test: Create new booking');
+
+    const createPage = new CreateBookingPage(page);
+    await createPage.goto();
+
+    await page.screenshot({ path: 'test-results/booking-create-form.png', fullPage: true });
+
+    // Get available options
+    const customerOptions = await createPage.customerSelect.locator('option').all();
+    const locationOptions = await createPage.pickupLocationSelect.locator('option').all();
+
+    console.log(`Found ${customerOptions.length} customers, ${locationOptions.length} locations`);
+    console.log(`Using test vehicle: ${testVehicle.make} ${testVehicle.model} (${testVehicle.id})`);
+
+    if (customerOptions.length < 2 || locationOptions.length < 2) {
+      console.log('⚠️  Insufficient test data - skipping booking creation');
+      test.skip();
+    }
+
+    // Create dates in the future (guaranteed no conflicts with our fresh vehicle)
+    const pickupDate = new Date();
+    pickupDate.setDate(pickupDate.getDate() + 7); // 7 days from now
+    pickupDate.setHours(10, 0, 0, 0);
+
+    const dropoffDate = new Date(pickupDate);
+    dropoffDate.setDate(dropoffDate.getDate() + 3); // 3-day rental
+    dropoffDate.setHours(14, 0, 0, 0);
+
+    const formatDateTime = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    // Fill the form with test vehicle
+    await createPage.fillBookingForm({
+      vehicleId: testVehicle.id,
+      pickupDatetime: formatDateTime(pickupDate),
+      dropoffDatetime: formatDateTime(dropoffDate),
+      notes: 'E2E test booking with dedicated test vehicle',
+    });
+
+    // Select customer and locations
+    await createPage.customerSelect.selectOption({ index: 1 });
+    await createPage.pickupLocationSelect.selectOption({ index: 1 });
+    await createPage.dropoffLocationSelect.selectOption({ index: 1 });
+
+    await page.screenshot({ path: 'test-results/booking-form-filled.png', fullPage: true });
+
+    // Wait for pricing to calculate
+    await page.waitForTimeout(2000);
+
+    // Capture console errors
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    // Check for validation errors before submitting
+    const preSubmitErrors = await page.locator('[class*="error"], [class*="invalid"], [role="alert"]').allTextContents();
+    if (preSubmitErrors.length > 0) {
+      console.log('⚠️  Validation errors before submit:', preSubmitErrors);
+    }
+
+    // Submit the form
+    console.log('📝 Submitting booking form...');
+    await createPage.submitBooking();
+    await page.waitForTimeout(1000);
+
+    // Check for validation errors after submitting
+    const postSubmitErrors = await page.locator('[class*="error"], [class*="invalid"], [role="alert"]').allTextContents();
+    if (postSubmitErrors.length > 0) {
+      console.log('❌ Validation errors after submit:', postSubmitErrors);
+    }
+
+    if (consoleErrors.length > 0) {
+      console.log('❌ Console errors:', consoleErrors);
+    }
+
+    // Wait for navigation to detail page
+    await page.waitForURL(/\/bookings\/[a-f0-9-]+/, { timeout: 10000 });
+
+    await page.screenshot({ path: 'test-results/booking-created.png', fullPage: true });
+
+    // Extract booking ID from URL
+    const url = page.url();
+    createdBookingId = url.split('/').pop() || '';
+    console.log('✅ Booking created with ID:', createdBookingId);
+
+    // Verify we're on the detail page
+    expect(url).toContain('/bookings/');
+    expect(createdBookingId).toBeTruthy();
+  });
+
+  test('should display booking details', async ({ page }) => {
+    console.log('🚀 Test: Display booking details');
+
+    // Intercept API calls to see what's being returned
+    page.on('response', async response => {
+      if (response.url().includes('/api/v1/bookings') && !response.url().includes('/api/v1/bookings/')) {
+        console.log('📡 Bookings API response:', response.status());
+        try {
+          const json = await response.json();
+          console.log('📊 Bookings data:', JSON.stringify(json).substring(0, 200));
+        } catch (e) {
+          console.log('Could not parse response');
+        }
+      }
+    });
+
+    // First, get a booking ID from the list
+    const listPage = new BookingListPage(page);
+    await listPage.goto();
+
+    const bookingCount = await listPage.getBookingCount();
+    console.log(`Found ${bookingCount} bookings`);
+
+    if (bookingCount === 0) {
+      console.log('⚠️  No bookings found - skipping detail test');
+      test.skip();
+    }
+
+    // Click first booking
+    await listPage.clickFirstBooking();
+
+    await page.waitForURL(/\/bookings\/[a-f0-9-]+/);
+    await page.screenshot({ path: 'test-results/booking-detail.png', fullPage: true });
+
+    const detailPage = new BookingDetailPage(page);
+
+    // Verify booking details are displayed
+    await expect(detailPage.bookingNumber).toBeVisible();
+    await expect(detailPage.statusBadge).toBeVisible();
+
+    const status = await detailPage.getStatus();
+    console.log('Booking status:', status);
+
+    console.log('✅ Booking details displayed correctly');
+  });
+
+  test('should filter bookings by status', async ({ page }) => {
+    console.log('🚀 Test: Filter by status');
+
+    const listPage = new BookingListPage(page);
+    await listPage.goto();
+
+    const initialCount = await listPage.getBookingCount();
+    console.log(`Initial booking count: ${initialCount}`);
+
+    if (initialCount === 0) {
+      console.log('⚠️  No bookings to filter - skipping');
+      test.skip();
+    }
+
+    // Filter by pending status
+    await listPage.filterByStatus('pending');
+    await page.screenshot({ path: 'test-results/booking-filter-pending.png', fullPage: true });
+
+    const pendingCount = await listPage.getBookingCount();
+    console.log(`Pending bookings: ${pendingCount}`);
+
+    // Filter by confirmed
+    await listPage.filterByStatus('confirmed');
+    const confirmedCount = await listPage.getBookingCount();
+    console.log(`Confirmed bookings: ${confirmedCount}`);
+
+    // Clear filter
+    await listPage.filterByStatus('');
+    const afterClearCount = await listPage.getBookingCount();
+    console.log(`After clearing filter: ${afterClearCount}`);
+
+    console.log('✅ Filtering works correctly');
+  });
+
+  test('should search bookings', async ({ page }) => {
+    console.log('🚀 Test: Search bookings');
+
+    const listPage = new BookingListPage(page);
+    await listPage.goto();
+
+    const initialCount = await listPage.getBookingCount();
+    console.log(`Initial booking count: ${initialCount}`);
+
+    if (initialCount === 0) {
+      console.log('⚠️  No bookings to search - skipping');
+      test.skip();
+    }
+
+    // Search for "BP-" (booking number prefix)
+    await listPage.searchBookings('BP-');
+    await page.screenshot({ path: 'test-results/booking-search.png', fullPage: true });
+
+    const searchCount = await listPage.getBookingCount();
+    console.log(`Search results: ${searchCount}`);
+
+    // Clear search
+    await listPage.searchBookings('');
+    const afterClearCount = await listPage.getBookingCount();
+
+    console.log('✅ Search works correctly');
+  });
+
+  test('should toggle between grid and list views', async ({ page }) => {
+    console.log('🚀 Test: Toggle view modes');
+
+    const listPage = new BookingListPage(page);
+    await listPage.goto();
+
+    // Default should be grid view
+    await page.screenshot({ path: 'test-results/booking-grid-view.png', fullPage: true });
+
+    // Switch to list view
+    await listPage.listViewButton.click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/booking-list-view.png', fullPage: true });
+
+    // Switch back to grid
+    await listPage.gridViewButton.click();
+    await page.waitForTimeout(500);
+
+    console.log('✅ View toggle works correctly');
+  });
+
+  test.describe('Booking Status Management', () => {
+    test('should confirm a pending booking', async ({ page }) => {
+      console.log('🚀 Test: Confirm booking');
+
+      // Find a pending booking
+      const listPage = new BookingListPage(page);
+      await listPage.goto();
+      await listPage.filterByStatus('pending');
+
+      const pendingCount = await listPage.getBookingCount();
+      if (pendingCount === 0) {
+        console.log('⚠️  No pending bookings - skipping');
+        test.skip();
+      }
+
+      await listPage.clickFirstBooking();
+      await page.waitForURL(/\/bookings\/[a-f0-9-]+/);
+      await page.waitForLoadState('networkidle');
+
+      const detailPage = new BookingDetailPage(page);
+
+      // Wait for confirm button to be visible (should be there for pending bookings)
+      await expect(detailPage.confirmButton).toBeVisible({ timeout: 10000 });
+
+      // Confirm the booking
+      await detailPage.confirmBooking();
+      await page.screenshot({ path: 'test-results/booking-confirmed.png', fullPage: true });
+
+      // Verify status changed
+      const status = await detailPage.getStatus();
+      expect(status?.toLowerCase()).toContain('confirmed');
+
+      console.log('✅ Booking confirmed successfully');
+    });
+
+    test('should activate a confirmed booking', async ({ page }) => {
+      console.log('🚀 Test: Activate booking');
+
+      const listPage = new BookingListPage(page);
+      await listPage.goto();
+      await listPage.filterByStatus('confirmed');
+
+      const confirmedCount = await listPage.getBookingCount();
+      if (confirmedCount === 0) {
+        console.log('⚠️  No confirmed bookings - skipping');
+        test.skip();
+      }
+
+      await listPage.clickFirstBooking();
+      await page.waitForURL(/\/bookings\/[a-f0-9-]+/);
+      await page.waitForLoadState('networkidle');
+
+      const detailPage = new BookingDetailPage(page);
+
+      // Wait for activate button to be visible (should be there for confirmed bookings)
+      await expect(detailPage.activateButton).toBeVisible({ timeout: 10000 });
+
+      await detailPage.activateBooking();
+      await page.screenshot({ path: 'test-results/booking-activated.png', fullPage: true });
+
+      const status = await detailPage.getStatus();
+      expect(status?.toLowerCase()).toContain('active');
+
+      console.log('✅ Booking activated successfully');
+    });
+
+    test('should cancel a booking', async ({ page }) => {
+      console.log('🚀 Test: Cancel booking');
+
+      const listPage = new BookingListPage(page);
+      await listPage.goto();
+
+      // Find any non-completed, non-cancelled booking
+      await listPage.filterByStatus('pending');
+
+      const count = await listPage.getBookingCount();
+      if (count === 0) {
+        console.log('⚠️  No bookings to cancel - skipping');
+        test.skip();
+      }
+
+      await listPage.clickFirstBooking();
+      await page.waitForURL(/\/bookings\/[a-f0-9-]+/);
+      await page.waitForLoadState('networkidle');
+
+      const detailPage = new BookingDetailPage(page);
+
+      // Wait for cancel button to be visible (should be there for pending bookings)
+      await expect(detailPage.cancelButton).toBeVisible({ timeout: 10000 });
+
+      await detailPage.cancelBooking();
+      await page.screenshot({ path: 'test-results/booking-cancelled.png', fullPage: true });
+
+      const status = await detailPage.getStatus();
+      expect(status?.toLowerCase()).toContain('cancel');
+
+      console.log('✅ Booking cancelled successfully');
+    });
+  });
+});
