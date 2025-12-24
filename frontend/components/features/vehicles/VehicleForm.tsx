@@ -247,7 +247,7 @@ export function VehicleForm({
               error={!!errors.fuelType}
               options={[
                 { value: '', label: 'Select fuel type' },
-                { value: 'gasoline', label: 'Gasoline' },
+                { value: 'gas', label: 'Gasoline' },
                 { value: 'diesel', label: 'Diesel' },
                 { value: 'electric', label: 'Electric' },
                 { value: 'hybrid', label: 'Hybrid' },

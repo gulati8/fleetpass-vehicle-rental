@@ -29,6 +29,7 @@ export function VehicleCard({
       <Card
         hover
         className="transition-all duration-200"
+        data-testid="vehicle-card"
       >
         <CardContent className="p-6">
           <div className="flex items-center gap-6">
@@ -118,6 +119,7 @@ export function VehicleCard({
     <Card
       hover
       className="transition-all duration-200 group"
+      data-testid="vehicle-card"
     >
       <CardContent className="p-0">
         {/* Image placeholder */}
