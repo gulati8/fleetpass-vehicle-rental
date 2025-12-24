@@ -299,22 +299,22 @@ test.describe('Booking CRUD Operations', () => {
 
       await listPage.clickFirstBooking();
       await page.waitForURL(/\/bookings\/[a-f0-9-]+/);
+      await page.waitForLoadState('networkidle');
 
       const detailPage = new BookingDetailPage(page);
 
+      // Wait for confirm button to be visible (should be there for pending bookings)
+      await expect(detailPage.confirmButton).toBeVisible({ timeout: 10000 });
+
       // Confirm the booking
-      if (await detailPage.confirmButton.isVisible()) {
-        await detailPage.confirmBooking();
-        await page.screenshot({ path: 'test-results/booking-confirmed.png', fullPage: true });
+      await detailPage.confirmBooking();
+      await page.screenshot({ path: 'test-results/booking-confirmed.png', fullPage: true });
 
-        // Verify status changed
-        const status = await detailPage.getStatus();
-        expect(status?.toLowerCase()).toContain('confirmed');
+      // Verify status changed
+      const status = await detailPage.getStatus();
+      expect(status?.toLowerCase()).toContain('confirmed');
 
-        console.log('✅ Booking confirmed successfully');
-      } else {
-        console.log('⚠️  Confirm button not visible - booking may not be pending');
-      }
+      console.log('✅ Booking confirmed successfully');
     });
 
     test('should activate a confirmed booking', async ({ page }) => {
@@ -332,20 +332,20 @@ test.describe('Booking CRUD Operations', () => {
 
       await listPage.clickFirstBooking();
       await page.waitForURL(/\/bookings\/[a-f0-9-]+/);
+      await page.waitForLoadState('networkidle');
 
       const detailPage = new BookingDetailPage(page);
 
-      if (await detailPage.activateButton.isVisible()) {
-        await detailPage.activateBooking();
-        await page.screenshot({ path: 'test-results/booking-activated.png', fullPage: true });
+      // Wait for activate button to be visible (should be there for confirmed bookings)
+      await expect(detailPage.activateButton).toBeVisible({ timeout: 10000 });
 
-        const status = await detailPage.getStatus();
-        expect(status?.toLowerCase()).toContain('active');
+      await detailPage.activateBooking();
+      await page.screenshot({ path: 'test-results/booking-activated.png', fullPage: true });
 
-        console.log('✅ Booking activated successfully');
-      } else {
-        console.log('⚠️  Activate button not visible');
-      }
+      const status = await detailPage.getStatus();
+      expect(status?.toLowerCase()).toContain('active');
+
+      console.log('✅ Booking activated successfully');
     });
 
     test('should cancel a booking', async ({ page }) => {
@@ -365,20 +365,20 @@ test.describe('Booking CRUD Operations', () => {
 
       await listPage.clickFirstBooking();
       await page.waitForURL(/\/bookings\/[a-f0-9-]+/);
+      await page.waitForLoadState('networkidle');
 
       const detailPage = new BookingDetailPage(page);
 
-      if (await detailPage.cancelButton.isVisible()) {
-        await detailPage.cancelBooking();
-        await page.screenshot({ path: 'test-results/booking-cancelled.png', fullPage: true });
+      // Wait for cancel button to be visible (should be there for pending bookings)
+      await expect(detailPage.cancelButton).toBeVisible({ timeout: 10000 });
 
-        const status = await detailPage.getStatus();
-        expect(status?.toLowerCase()).toContain('cancel');
+      await detailPage.cancelBooking();
+      await page.screenshot({ path: 'test-results/booking-cancelled.png', fullPage: true });
 
-        console.log('✅ Booking cancelled successfully');
-      } else {
-        console.log('⚠️  Cancel button not visible');
-      }
+      const status = await detailPage.getStatus();
+      expect(status?.toLowerCase()).toContain('cancel');
+
+      console.log('✅ Booking cancelled successfully');
     });
   });
 });
