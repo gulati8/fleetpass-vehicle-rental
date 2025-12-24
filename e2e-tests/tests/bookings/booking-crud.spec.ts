@@ -147,6 +147,19 @@ test.describe('Booking CRUD Operations', () => {
   test('should display booking details', async ({ page }) => {
     console.log('🚀 Test: Display booking details');
 
+    // Intercept API calls to see what's being returned
+    page.on('response', async response => {
+      if (response.url().includes('/api/v1/bookings') && !response.url().includes('/api/v1/bookings/')) {
+        console.log('📡 Bookings API response:', response.status());
+        try {
+          const json = await response.json();
+          console.log('📊 Bookings data:', JSON.stringify(json).substring(0, 200));
+        } catch (e) {
+          console.log('Could not parse response');
+        }
+      }
+    });
+
     // First, get a booking ID from the list
     const listPage = new BookingListPage(page);
     await listPage.goto();

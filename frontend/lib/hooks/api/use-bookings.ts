@@ -11,10 +11,15 @@ import type {
 
 // Query: Get All Bookings (with filters)
 export function useBookings(filters?: BookingFilters) {
+  // Filter out empty string values to avoid backend validation errors
+  const cleanFilters = filters ? Object.fromEntries(
+    Object.entries(filters).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
+  ) : undefined;
+
   return useQuery({
-    queryKey: queryKeys.bookings.list(filters),
+    queryKey: queryKeys.bookings.list(cleanFilters),
     queryFn: async () => {
-      const response = await apiClient.get('/bookings', { params: filters });
+      const response = await apiClient.get('/bookings', { params: cleanFilters });
       return response.data.data as BookingWithRelations[];
     },
   });
