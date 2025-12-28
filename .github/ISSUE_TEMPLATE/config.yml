@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Question or Discussion
+    url: https://github.com/yourusername/FleetPass/discussions
+    about: Ask questions or discuss ideas before creating a formal feature request
+  - name: 📚 Documentation
+    url: https://github.com/yourusername/FleetPass/tree/main/docs
+    about: Check our documentation for guides and technical details

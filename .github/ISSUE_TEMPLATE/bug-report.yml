@@ -1,0 +1,131 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug Report
+
+        Thanks for reporting a bug! Please provide as much detail as possible to help us fix it quickly.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      description: Which part of FleetPass is affected?
+      options:
+        - Vehicle Management
+        - Booking System
+        - Customer Management
+        - KYC / Identity Verification
+        - Payment Processing
+        - Lead Management
+        - Deal Tracking
+        - Location Management
+        - Authentication / Login
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of what the bug is
+      placeholder: When I [action], the system [unexpected behavior] instead of [expected behavior].
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the bug
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Fill in '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+      placeholder: The system should...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: Instead, the system...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (system down, data loss, security issue)
+        - High (major feature broken, workaround exists)
+        - Medium (feature partially broken, minor impact)
+        - Low (cosmetic, minor inconvenience)
+      default: 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Where does this bug occur?
+      placeholder: |
+        - Browser: Chrome 120, Safari 17, etc.
+        - OS: Windows 11, macOS 14, etc.
+        - Device: Desktop, Mobile, Tablet
+        - Environment: Production, Staging, Local Development
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Messages / Logs
+      description: Any error messages, console logs, or stack traces
+      placeholder: |
+        ```
+        Paste error messages or logs here
+        ```
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem
+      placeholder: Drag and drop images here
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem
+      placeholder: |
+        - This started happening after [event/update]
+        - Only occurs when [specific condition]
+        - Affects [number] users
+    validations:
+      required: false

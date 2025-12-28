@@ -1,0 +1,176 @@
+name: Feature Request
+description: Propose a new feature for FleetPass
+title: "[FEATURE] "
+labels: ["feature-request", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🚀 Feature Request
+
+        Thanks for proposing a new feature! Please fill out the sections below to help us understand your request.
+
+        **Before submitting:**
+        - Check if a similar feature request already exists
+        - Review our [Feature Documentation](../../docs/features/) to see if this already exists
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      description: Which part of FleetPass does this feature relate to?
+      options:
+        - Vehicle Management
+        - Booking System
+        - Customer Management
+        - KYC / Identity Verification
+        - Payment Processing
+        - Lead Management
+        - Deal Tracking
+        - Location Management
+        - Authentication / Security
+        - Reporting / Analytics
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Who experiences this problem?
+      placeholder: |
+        As a [user type], I currently struggle with [problem] because [reason].
+        This affects [impact on business/users].
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How should this work from a user's perspective? What should they be able to do?
+      placeholder: |
+        Users should be able to [action] by [how they do it].
+        The system should [expected behavior].
+
+        Example workflow:
+        1. User clicks [button/navigates to page]
+        2. System displays [UI element]
+        3. User performs [action]
+        4. System responds with [result]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: What must be true for this feature to be considered "done"? Use checkboxes.
+      placeholder: |
+        - [ ] Users can [specific action]
+        - [ ] System validates [specific rule]
+        - [ ] Error handling for [scenario]
+        - [ ] Feature works on mobile devices
+        - [ ] Documentation is updated
+        - [ ] Tests are written and passing
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgently is this needed?
+      options:
+        - Critical (blocking core business operations)
+        - High (needed within 2-4 weeks)
+        - Medium (nice to have soon)
+        - Low (future consideration)
+      default: 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches have you considered? Why is this solution preferred?
+      placeholder: |
+        We considered [alternative 1] but [reason for not choosing it].
+        We also looked at [alternative 2] but [reason for not choosing it].
+    validations:
+      required: false
+
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical Considerations
+      description: |
+        Any technical constraints, security concerns, integration requirements, or performance impacts to consider?
+        (Optional - for users familiar with the technical architecture)
+      placeholder: |
+        - May require changes to database schema
+        - Could impact page load performance
+        - Needs integration with [external service]
+        - Security concern: [describe]
+    validations:
+      required: false
+
+  - type: dropdown
+    id: user_type
+    attributes:
+      label: Who will use this feature?
+      description: Which user types will benefit?
+      multiple: true
+      options:
+        - Dealership Admin
+        - Dealership Staff
+        - Customers (Vehicle Renters)
+        - System Administrators
+        - All Users
+    validations:
+      required: true
+
+  - type: textarea
+    id: mockups
+    attributes:
+      label: Mockups / Examples
+      description: |
+        Attach screenshots, mockups, or links to examples from other applications.
+        Drag and drop images here or paste URLs.
+      placeholder: |
+        ![Feature mockup](url-to-image)
+
+        Reference example: [Similar feature in other app](url)
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other information that would help us understand this feature request?
+      placeholder: |
+        - Requested by [customer/stakeholder]
+        - Related to [business goal]
+        - Competitive analysis: [competitors who have this]
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm before submitting
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have provided clear acceptance criteria
+          required: true
+        - label: This feature aligns with FleetPass's core purpose (vehicle rental management)
+          required: true
