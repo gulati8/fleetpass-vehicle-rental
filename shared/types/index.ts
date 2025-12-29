@@ -11,6 +11,7 @@ export * from './location.types';
 export * from './vehicle.types';
 export * from './customer.types';
 export * from './booking.types';
+export * from './payment.types';
 export * from './lead.types';
 export * from './deal.types';
 

@@ -74,7 +74,8 @@ export const queryKeys = {
   // Payments
   payments: {
     all: ['payments'] as const,
-    intent: (bookingId: string) => [...queryKeys.payments.all, 'intent', bookingId] as const,
+    details: () => [...queryKeys.payments.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.payments.details(), id] as const,
   },
 
   // KYC

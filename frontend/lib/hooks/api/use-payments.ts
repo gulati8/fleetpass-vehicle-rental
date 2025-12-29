@@ -1,47 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { queryKeys } from './query-keys';
+import type {
+  Payment,
+  CreatePaymentIntentInput,
+  CreatePaymentIntentResponse,
+  RefundPaymentResponse,
+} from '@shared/types';
 
-// Types
-interface PaymentIntent {
-  id: string;
-  bookingId: string;
-  amount: number;
-  currency: string;
-  status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
-  paymentMethod?: string;
-  stripePaymentIntentId?: string;
-  errorMessage?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Payment {
-  id: string;
-  bookingId: string;
-  amount: number;
-  currency: string;
-  status: 'PENDING' | 'PAID' | 'REFUNDED' | 'FAILED';
-  paymentMethod: string;
-  transactionId?: string;
-  refundId?: string;
-  refundAmount?: number;
-  refundReason?: string;
-  paidAt?: string;
-  refundedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Query: Get Payment Intent for Booking
-export function usePaymentIntent(bookingId: string) {
+// Query: Get Payment by Payment ID
+export function usePayment(paymentId: string | null) {
   return useQuery({
-    queryKey: queryKeys.payments.intent(bookingId),
+    queryKey: queryKeys.payments.detail(paymentId || ''),
     queryFn: async () => {
-      const response = await apiClient.get(`/payments/intent/${bookingId}`);
-      return response.data.data as PaymentIntent;
+      const response = await apiClient.get(`/payments/intents/${paymentId}`);
+      return response.data.data as Payment;
     },
-    enabled: !!bookingId,
+    enabled: !!paymentId,
   });
 }
 
@@ -50,12 +25,13 @@ export function useCreatePaymentIntent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (bookingId: string) => {
-      const response = await apiClient.post('/payments/intent', { bookingId });
-      return response.data.data as PaymentIntent;
+    mutationFn: async (input: CreatePaymentIntentInput) => {
+      const response = await apiClient.post('/payments/intents', input);
+      return response.data.data as CreatePaymentIntentResponse;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payments.intent(data.bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.detail(data.payment.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(data.payment.bookingId) });
     },
   });
 }
@@ -66,19 +42,36 @@ export function useConfirmPayment() {
 
   return useMutation({
     mutationFn: async ({
-      paymentIntentId,
+      paymentId,
       paymentMethodId,
     }: {
-      paymentIntentId: string;
+      paymentId: string;
       paymentMethodId: string;
     }) => {
-      const response = await apiClient.post(`/payments/${paymentIntentId}/confirm`, {
+      const response = await apiClient.post(`/payments/intents/${paymentId}/confirm`, {
         paymentMethodId,
       });
       return response.data.data as Payment;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payments.intent(data.bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(data.bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
+    },
+  });
+}
+
+// Mutation: Cancel Payment
+export function useCancelPayment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (paymentId: string) => {
+      const response = await apiClient.post(`/payments/intents/${paymentId}/cancel`);
+      return response.data.data as Payment;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.detail(data.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(data.bookingId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
     },
@@ -90,13 +83,24 @@ export function useRefundPayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ paymentId, reason }: { paymentId: string; reason?: string }) => {
-      const response = await apiClient.post(`/payments/${paymentId}/refund`, { reason });
-      return response.data.data as Payment;
+    mutationFn: async ({
+      paymentId,
+      amountCents,
+      reason
+    }: {
+      paymentId: string;
+      amountCents?: number;
+      reason?: string;
+    }) => {
+      const response = await apiClient.post(`/payments/${paymentId}/refund`, {
+        amountCents,
+        reason
+      });
+      return response.data.data as RefundPaymentResponse;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payments.intent(data.bookingId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(data.bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.detail(data.payment.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(data.payment.bookingId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.lists() });
     },
   });

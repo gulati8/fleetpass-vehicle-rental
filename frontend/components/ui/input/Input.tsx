@@ -11,6 +11,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       error = false,
       leftAddon,
       rightAddon,
+      id,
       ...props
     },
     ref
@@ -18,6 +19,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const hasAddons = leftAddon || rightAddon;
     const hasError = Boolean(error);
     const effectiveVariant = hasError ? 'error' : variant;
+
+    // Generate unique error ID for aria-describedby
+    const errorId = id && hasError && typeof error === 'string' ? `${id}-error` : undefined;
 
     const inputClasses = cn(
       inputVariants({ variant: effectiveVariant, size }),
@@ -31,7 +35,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const input = (
       <input
         ref={ref}
+        id={id}
         className={inputClasses}
+        aria-invalid={hasError || undefined}
+        aria-describedby={errorId}
         {...props}
       />
     );
@@ -62,7 +69,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <div>
         {inputElement}
         {typeof error === 'string' && error.length > 0 && (
-          <p className="mt-1 text-sm text-error-600">{error}</p>
+          <p id={errorId} className="mt-1 text-sm text-error-600" role="alert">
+            {error}
+          </p>
         )}
       </div>
     );

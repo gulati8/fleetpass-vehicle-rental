@@ -93,9 +93,10 @@ export {
 
 // Payments
 export {
-  usePaymentIntent,
+  usePayment,
   useCreatePaymentIntent,
   useConfirmPayment,
+  useCancelPayment,
   useRefundPayment,
 } from './use-payments';
 
