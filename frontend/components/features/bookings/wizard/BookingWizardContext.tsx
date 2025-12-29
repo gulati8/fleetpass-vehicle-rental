@@ -335,6 +335,17 @@ export function WizardProvider({
   }, [state.paymentData, updateState]);
 
   /**
+   * Set booking result after successful payment
+   * Updates the wizard state with booking and payment confirmation details
+   */
+  const setBookingResult = useCallback((result: BookingResult) => {
+    updateState({
+      result,
+      isCompleted: true,
+    });
+  }, [updateState]);
+
+  /**
    * Set error for a specific step
    */
   const setStepError = useCallback((step: WizardStep, error: WizardError | null) => {
@@ -463,6 +474,7 @@ export function WizardProvider({
     updateVehicleData,
     updateBookingData,
     updatePaymentData,
+    setBookingResult,
     setStepError,
     setGlobalError,
     clearErrors,

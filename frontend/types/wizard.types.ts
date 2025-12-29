@@ -191,6 +191,9 @@ export interface WizardContextValue {
   /** Update payment data (Step 3) */
   updatePaymentData: (data: Partial<PaymentFormData>) => void;
 
+  /** Set booking result after successful payment (Step 3 → Step 4) */
+  setBookingResult: (result: BookingResult) => void;
+
   /** Set error for a specific step */
   setStepError: (step: WizardStep, error: WizardError | null) => void;
 
