@@ -1,65 +1,35 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button/Button';
-import { useCreateBooking } from '@/lib/hooks/api/use-bookings';
-import { BookingForm } from '@/components/features/bookings/BookingForm';
-import type { CreateBookingRequest } from '@shared/types';
+import { BookingWizard } from '@/components/features/bookings/wizard/BookingWizard';
 
+/**
+ * New Booking Page Content
+ *
+ * Renders the 4-step booking wizard for creating new vehicle rental bookings.
+ * The wizard handles all state management, validation, payment processing, and confirmation.
+ *
+ * FEATURES:
+ * - Step 1: Customer, vehicle, dates, and location selection
+ * - Step 2: Review booking details and pricing
+ * - Step 3: Payment processing
+ * - Step 4: Booking confirmation
+ *
+ * STATE MANAGEMENT:
+ * - Session storage persistence (24hr TTL) via WizardProvider
+ * - Automatic data recovery on page refresh
+ * - Step validation before navigation
+ *
+ * NAVIGATION:
+ * - Wizard handles its own navigation between steps
+ * - Final step provides "View Booking", "Create Another", and "Return to Dashboard" actions
+ *
+ * @returns The booking wizard wrapped in error boundary
+ */
 function NewBookingPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const createBooking = useCreateBooking();
-
-  const customerId = searchParams?.get('customerId') || undefined;
-
-  const handleSubmit = async (data: CreateBookingRequest) => {
-    try {
-      const booking = await createBooking.mutateAsync(data);
-      router.push(`/bookings/${booking.id}`);
-    } catch (error: any) {
-      console.error('Failed to create booking:', error);
-      alert(error.message || 'Failed to create booking. Please try again.');
-    }
-  };
-
-  const handleCancel = () => {
-    router.push('/bookings');
-  };
-
   return (
     <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back button */}
-        <Button
-          variant="ghost"
-          onClick={handleCancel}
-          leftIcon={<ArrowLeft className="w-4 h-4" />}
-          className="mb-6"
-        >
-          Back to Bookings
-        </Button>
-
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-            Create New Booking
-          </h1>
-          <p className="text-neutral-600">
-            Set up a new vehicle rental booking for a customer
-          </p>
-        </div>
-
-        {/* Form */}
-        <BookingForm
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          isSubmitting={createBooking.isPending}
-          initialCustomerId={customerId}
-        />
-      </div>
+      <BookingWizard />
     </div>
   );
 }
