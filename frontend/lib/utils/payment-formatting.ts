@@ -1,8 +1,8 @@
 /**
  * Payment Formatting Utilities
  *
- * Helper functions for formatting payment-related input fields.
- * These utilities provide consistent formatting for credit card numbers and expiry dates.
+ * Helper functions for formatting payment-related input fields and currency display.
+ * These utilities provide consistent formatting for credit card numbers, expiry dates, and currency amounts.
  */
 
 /**
@@ -51,4 +51,26 @@ export function formatExpiry(value: string): string {
 
   // Add slash between MM and YY
   return `${digits.substring(0, 2)} / ${digits.substring(2, 4)}`;
+}
+
+/**
+ * Formats a currency amount in cents to dollar display format
+ *
+ * Converts cents to dollars by dividing by 100 and formats with $ symbol,
+ * thousands separators, and 2 decimal places.
+ *
+ * @param amountCents - Amount in cents (e.g., 5000 = $50.00)
+ * @returns Formatted currency string with dollar sign
+ *
+ * @example
+ * formatCurrency(5000) // => '$50.00'
+ * formatCurrency(125050) // => '$1,250.50'
+ * formatCurrency(0) // => '$0.00'
+ */
+export function formatCurrency(amountCents: number): string {
+  const dollars = amountCents / 100;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(dollars);
 }
