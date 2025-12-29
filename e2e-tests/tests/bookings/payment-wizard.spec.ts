@@ -109,7 +109,24 @@ test.describe('Payment Wizard Integration', () => {
     await page.screenshot({ path: 'test-results/wizard-step1-filled.png', fullPage: true });
 
     // Click Next button
+    console.log('🔘 Clicking Next: Review Details button...');
     await page.locator('button:has-text("Next: Review Details")').click();
+
+    // Wait a bit for any errors to appear
+    await page.waitForTimeout(2000);
+
+    // Check for any error messages
+    const errorElements = await page.locator('[role="alert"], .text-error-600, .text-red-600').all();
+    if (errorElements.length > 0) {
+      console.log(`⚠️  Found ${errorElements.length} potential error elements`);
+      for (let i = 0; i < errorElements.length; i++) {
+        const text = await errorElements[i].textContent();
+        if (text && text.trim()) {
+          console.log(`   Error ${i + 1}: "${text}"`);
+        }
+      }
+    }
+
     await page.waitForLoadState('networkidle');
 
     // ===================================================================
@@ -118,14 +135,15 @@ test.describe('Payment Wizard Integration', () => {
     console.log('📋 Step 2: Reviewing booking details');
 
     // Wait for review page content to load
-    await expect(page.locator('text=Review Your Booking')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Review Your Booking' })).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: 'test-results/wizard-step2-review.png', fullPage: true });
 
     // Verify booking details are displayed
-    await expect(page.locator('text=Review Your Booking')).toBeVisible();
-    await expect(page.locator('text=Vehicle Details')).toBeVisible();
-    await expect(page.locator('text=Rental Period')).toBeVisible();
-    await expect(page.locator('text=Pricing Summary')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Review Your Booking' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Customer' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vehicle' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Rental Period' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Price Summary' })).toBeVisible();
 
     // Verify test vehicle appears
     await expect(page.locator(`text=${testVehicle.make} ${testVehicle.model}`)).toBeVisible();
@@ -140,11 +158,11 @@ test.describe('Payment Wizard Integration', () => {
     console.log('💳 Step 3: Processing payment');
 
     // Wait for payment form to load
-    await expect(page.locator('text=Payment Information')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Payment Information', level: 2 })).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: 'test-results/wizard-step3-payment.png', fullPage: true });
 
     // Verify payment form is visible
-    await expect(page.locator('text=Payment Information')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Payment Information', level: 2 })).toBeVisible();
 
     // Fill mock payment card details
     const cardNumberInput = page.locator('input[name="cardNumber"]');
@@ -166,10 +184,16 @@ test.describe('Payment Wizard Integration', () => {
 
     // Submit payment
     console.log('💰 Submitting payment...');
-    await page.locator('button:has-text("Pay Deposit")').click();
+    await page.locator('button:has-text("Pay $")').click();
 
     // Wait for payment processing (with longer timeout)
     await page.waitForLoadState('networkidle', { timeout: 30000 });
+
+    // Wait for processing modal to disappear (if present)
+    const processingModal = page.locator('text=Payment successful!');
+    if (await processingModal.isVisible()) {
+      await processingModal.waitFor({ state: 'hidden', timeout: 30000 });
+    }
 
     // ===================================================================
     // STEP 4: Confirmation
@@ -177,13 +201,13 @@ test.describe('Payment Wizard Integration', () => {
     console.log('✅ Step 4: Verifying confirmation');
 
     // Should reach confirmation step
-    await expect(page.locator('text=Booking Confirmed')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Booking Confirmed!' })).toBeVisible({ timeout: 15000 });
 
     await page.screenshot({ path: 'test-results/wizard-step4-confirmation.png', fullPage: true });
 
     // Verify confirmation details
     await expect(page.locator('text=Booking Number:')).toBeVisible();
-    await expect(page.locator('text=Payment Confirmed')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Payment Confirmed' })).toBeVisible();
 
     // Verify action buttons are present
     await expect(page.locator('button:has-text("View Booking Details")')).toBeVisible();
@@ -251,9 +275,9 @@ test.describe('Payment Wizard Integration', () => {
     await expect(page.locator('text=Review Your Booking')).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: 'test-results/wizard-edit-before.png', fullPage: true });
 
-    // Click Edit button to go back to Step 1
+    // Click Edit button to go back to Step 1 (click first Edit button)
     console.log('🔙 Clicking Edit to return to Step 1');
-    await page.locator('button:has-text("Edit")').click();
+    await page.locator('button:has-text("Edit")').first().click();
     await page.waitForLoadState('networkidle');
 
     // Should be back at Step 1 (verify form is visible)
@@ -353,7 +377,7 @@ test.describe('Payment Wizard Integration', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for payment form
-    await expect(page.locator('text=Payment Information')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Payment Information', level: 2 })).toBeVisible({ timeout: 10000 });
 
     // Fill with invalid card number (test card that triggers decline)
     const cardNumberInput = page.locator('input[name="cardNumber"]');
@@ -375,23 +399,24 @@ test.describe('Payment Wizard Integration', () => {
 
     // Submit payment (expect failure)
     console.log('💥 Submitting payment with decline card...');
-    await page.locator('button:has-text("Pay Deposit")').click();
+    await page.locator('button:has-text("Pay $")').click();
 
     // Wait for error message
     await page.waitForTimeout(3000);
 
     // Note: Mock payment processor might not support decline cards
     // This test verifies the UI can handle errors, but actual error may vary
-    const errorVisible = await page.locator('text=payment failed, text=error, [role="alert"]').first().isVisible().catch(() => false);
+    const errorVisible = await page.locator('text=payment failed, text=error, text=declined, [role="alert"]').first().isVisible().catch(() => false);
 
     if (errorVisible) {
       console.log('✅ Payment error displayed correctly!');
       await page.screenshot({ path: 'test-results/wizard-payment-error.png', fullPage: true });
     } else {
-      console.log('⚠️  Mock payment might not support decline cards - checking if still on Step 3');
-      // Should still be on Step 3 if payment failed
-      const stillOnStep3 = await page.locator('text=Step 3 of 4').isVisible();
+      console.log('⚠️  Checking if still on Step 3 after payment failure');
+      // Should still be on Step 3 if payment failed - check for payment heading
+      const stillOnStep3 = await page.getByRole('heading', { name: 'Payment Information', level: 2 }).isVisible();
       expect(stillOnStep3).toBeTruthy();
+      console.log('✅ Payment failed gracefully - user remained on Step 3');
     }
   });
 });

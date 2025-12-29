@@ -92,12 +92,14 @@ export class StripeMockService {
   async confirmPaymentIntent(
     id: string,
     paymentMethodId?: string,
+    cardNumber?: string,
   ): Promise<MockPaymentIntent> {
     const paymentIntent = await this.retrievePaymentIntent(id);
 
     this.logger.logWithFields('info', 'Confirming mock payment intent', {
       paymentIntentId: id,
       currentStatus: paymentIntent.status,
+      cardNumber: cardNumber ? `****${cardNumber.slice(-4)}` : undefined,
     });
 
     if (paymentIntent.status !== 'requires_payment_method' && paymentIntent.status !== 'requires_confirmation') {
@@ -112,24 +114,34 @@ export class StripeMockService {
     }
 
     // Simulate card processing behavior based on test card numbers
-    const cardNumber = this.getCardNumberFromPaymentMethod(paymentMethodId);
+    // Use provided card number first, otherwise extract from payment method
+    // Remove spaces from card number for comparison (MockCardInput formats with spaces)
+    const rawCardNumber = cardNumber || this.getCardNumberFromPaymentMethod(paymentMethodId);
+    const testCardNumber = rawCardNumber.replace(/\s/g, '');
 
-    if (cardNumber === TEST_CARDS.DECLINE) {
+    this.logger.logWithFields('debug', 'Testing card number for decline', {
+      rawCardNumber,
+      testCardNumber,
+      declineCard: TEST_CARDS.DECLINE,
+      matches: testCardNumber === TEST_CARDS.DECLINE,
+    });
+
+    if (testCardNumber === TEST_CARDS.DECLINE) {
       // Card declined
       paymentIntent.status = 'requires_payment_method';
       paymentIntent.last_payment_error = {
         code: STRIPE_ERROR_CODES.CARD_DECLINED,
         message: 'Your card was declined',
       };
-      this.logger.warn('Mock payment declined', { paymentIntentId: id });
-    } else if (cardNumber === TEST_CARDS.INSUFFICIENT_FUNDS) {
+      this.logger.warn('Mock payment declined', { paymentIntentId: id, cardNumber: testCardNumber });
+    } else if (testCardNumber === TEST_CARDS.INSUFFICIENT_FUNDS) {
       // Insufficient funds
       paymentIntent.status = 'requires_payment_method';
       paymentIntent.last_payment_error = {
         code: STRIPE_ERROR_CODES.INSUFFICIENT_FUNDS,
         message: 'Your card has insufficient funds',
       };
-      this.logger.warn('Mock payment insufficient funds', { paymentIntentId: id });
+      this.logger.warn('Mock payment insufficient funds', { paymentIntentId: id, cardNumber: testCardNumber });
     } else {
       // Success path - transition through processing to succeeded
       paymentIntent.status = 'processing';

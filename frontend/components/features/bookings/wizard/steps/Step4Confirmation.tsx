@@ -9,6 +9,7 @@ import { useVehicle } from '@/lib/hooks/api/use-vehicles';
 import { useCustomer } from '@/lib/hooks/api/use-customers';
 import { useLocation } from '@/lib/hooks/api/use-locations';
 import { formatCurrency } from '@/lib/utils/payment-formatting';
+import { calculateRentalDays, calculatePricing } from '@/lib/utils/pricing';
 
 /**
  * Step4Confirmation Component
@@ -93,19 +94,16 @@ export function Step4Confirmation() {
   const pickupFormatted = formatDateTime(bookingData.pickupDatetime);
   const dropoffFormatted = formatDateTime(bookingData.dropoffDatetime);
 
-  // Calculate pricing (should match Step2/Step3 calculations)
-  const TAX_RATE = 0.08;
-  const DEPOSIT_PERCENTAGE = 0.2;
-
+  // Calculate pricing using shared utility
   const vehicleRate = vehicle?.dailyRateCents || 0;
-  const pickupDate = new Date(bookingData.pickupDatetime);
-  const dropoffDate = new Date(bookingData.dropoffDatetime);
-  const rentalDays = Math.ceil((dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24));
+  const rentalDays = calculateRentalDays(bookingData.pickupDatetime, bookingData.dropoffDatetime);
+  const pricing = calculatePricing(vehicleRate, rentalDays);
 
-  const subtotal = vehicleRate * rentalDays;
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax;
-  const deposit = total * DEPOSIT_PERCENTAGE;
+  // Extract values for display
+  const subtotal = pricing.subtotalCents;
+  const tax = pricing.taxCents;
+  const total = pricing.totalCents;
+  const deposit = pricing.depositCents;
 
   return (
     <div className="space-y-6">

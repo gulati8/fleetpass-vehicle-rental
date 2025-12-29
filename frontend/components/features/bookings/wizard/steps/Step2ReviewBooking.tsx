@@ -25,12 +25,7 @@ import { useWizard } from '../BookingWizardContext';
 import { useCustomer } from '@/lib/hooks/api/use-customers';
 import { useVehicle } from '@/lib/hooks/api/use-vehicles';
 import { useLocation } from '@/lib/hooks/api/use-locations';
-
-// Pricing Constants
-// TODO: Move to backend config or environment variable
-// These rates must match backend calculation in booking service
-const TAX_RATE = 0.08; // 8% tax
-const DEPOSIT_PERCENTAGE = 0.2; // 20% of total
+import { calculateRentalDays, calculatePricing } from '@/lib/utils/pricing';
 
 export interface ReviewStepProps {
   /** Callback when user clicks Continue to Payment */
@@ -39,32 +34,6 @@ export interface ReviewStepProps {
   onEdit: () => void;
 }
 
-/**
- * Calculate number of rental days from pickup/dropoff datetimes
- */
-function calculateDays(pickupDatetime: string, dropoffDatetime: string): number {
-  const pickup = new Date(pickupDatetime);
-  const dropoff = new Date(dropoffDatetime);
-  const days = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(1, days); // Minimum 1 day
-}
-
-/**
- * Calculate pricing breakdown based on daily rate and number of days
- */
-function calculatePricing(dailyRateCents: number, numDays: number) {
-  const subtotalCents = dailyRateCents * numDays;
-  const taxCents = Math.round(subtotalCents * TAX_RATE);
-  const totalCents = subtotalCents + taxCents;
-  const depositCents = Math.round(totalCents * DEPOSIT_PERCENTAGE);
-
-  return {
-    subtotalCents,
-    taxCents,
-    totalCents,
-    depositCents,
-  };
-}
 
 /**
  * Step 2 Component - Review Booking Details
@@ -130,7 +99,7 @@ export function Step2ReviewBooking({ onNext, onEdit }: ReviewStepProps) {
 
   // Calculate rental duration and pricing
   const numDays = useMemo(
-    () => pickupDatetime && dropoffDatetime ? calculateDays(pickupDatetime, dropoffDatetime) : 1,
+    () => pickupDatetime && dropoffDatetime ? calculateRentalDays(pickupDatetime, dropoffDatetime) : 1,
     [pickupDatetime, dropoffDatetime]
   );
 

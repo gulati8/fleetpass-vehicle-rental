@@ -160,6 +160,7 @@ export class PaymentService {
       const paymentIntent = await this.stripeMock.confirmPaymentIntent(
         payment.stripePaymentId,
         confirmDto.paymentMethodId,
+        confirmDto.cardNumber,
       );
 
       // Update payment record based on result
@@ -229,6 +230,9 @@ export class PaymentService {
           paymentId: payment.id,
           reason: paymentIntent.last_payment_error.message,
         });
+
+        // Throw error to frontend so it can handle payment failure
+        throw new BadRequestException(paymentIntent.last_payment_error.message);
       }
 
       return updatedPayment;

@@ -187,15 +187,17 @@ export function WizardProvider({
         );
 
       case 3:
-        // Step 3: Payment information
-        return !!(
-          state.paymentData &&
-          state.paymentData.cardNumber &&
-          state.paymentData.expiry &&
-          state.paymentData.cvv &&
-          state.paymentData.cardholderName &&
-          state.paymentData.termsAccepted
-        );
+        // Step 3: Payment complete when booking and payment are created
+        // Payment form is validated by Zod before submission
+        // Completion is determined by successful backend response (booking result)
+        const isComplete = !!(state.result && state.result.bookingId && state.result.paymentIntentId);
+        console.log('🔍 Step 3 validation check:', {
+          hasResult: !!state.result,
+          bookingId: state.result?.bookingId,
+          paymentIntentId: state.result?.paymentIntentId,
+          isComplete,
+        });
+        return isComplete;
 
       case 4:
         // Step 4: Confirmation (always accessible after step 3)
@@ -211,9 +213,14 @@ export function WizardProvider({
    */
   const next = useCallback(async () => {
     const currentStep = state.currentStep;
+    console.log(`🚀 next() called from Step ${currentStep}`);
 
     // Validate current step is complete
-    if (!isStepComplete(currentStep)) {
+    const stepComplete = isStepComplete(currentStep);
+    console.log(`✔️  isStepComplete(${currentStep}):`, stepComplete);
+
+    if (!stepComplete) {
+      console.error(`❌ Step ${currentStep} validation failed - step is not complete`);
       const error: WizardError = {
         message: `Please complete all required fields in Step ${currentStep} before continuing`,
         code: 'STEP_INCOMPLETE',
@@ -229,6 +236,8 @@ export function WizardProvider({
 
     // Move to next step if not on last step
     const nextStep = currentStep + 1;
+    console.log(`➡️  Moving to Step ${nextStep}`);
+
     if (isValidStep(nextStep)) {
       updateState({
         currentStep: nextStep,
@@ -237,6 +246,9 @@ export function WizardProvider({
           [currentStep]: null, // Clear current step error
         },
       });
+      console.log(`✅ Navigation to Step ${nextStep} completed`);
+    } else {
+      console.error(`❌ Invalid step: ${nextStep}`);
     }
   }, [state, isStepComplete, isValidStep, updateState]);
 
@@ -327,12 +339,19 @@ export function WizardProvider({
    * Update payment data (Step 3)
    */
   const updatePaymentData = useCallback((data: Partial<PaymentFormData>) => {
-    updateState({
-      paymentData: state.paymentData
-        ? { ...state.paymentData, ...data }
-        : (data as PaymentFormData),
+    console.log('💳 updatePaymentData called with:', data);
+    setState((prev) => {
+      const newPaymentData = prev.paymentData
+        ? { ...prev.paymentData, ...data }
+        : (data as PaymentFormData);
+      console.log('💾 Saving payment data to context:', newPaymentData);
+      return {
+        ...prev,
+        paymentData: newPaymentData,
+        lastUpdatedAt: new Date(),
+      };
     });
-  }, [state.paymentData, updateState]);
+  }, []);
 
   /**
    * Set booking result after successful payment
@@ -344,6 +363,44 @@ export function WizardProvider({
       isCompleted: true,
     });
   }, [updateState]);
+
+  /**
+   * Complete Step 3 and navigate to Step 4
+   * Atomically updates booking result and navigates to confirmation step
+   */
+  const completeStep3 = useCallback((result: BookingResult) => {
+    console.log('🎯 completeStep3 called with:', result);
+    updateState({
+      result,
+      isCompleted: true,
+      currentStep: 4,
+      errors: {
+        ...state.errors,
+        3: null, // Clear step 3 errors
+      },
+    });
+    console.log('✅ completeStep3: State updated, should now be on Step 4');
+  }, [state.errors, updateState]);
+
+  /**
+   * Complete Step 1 and navigate to Step 2
+   * Atomically updates booking data, vehicle data, and navigates to next step
+   */
+  const completeStep1 = useCallback((data: BookingWizardData) => {
+    updateState({
+      bookingData: data,
+      vehicleData: {
+        vehicleId: data.vehicleId,
+        pickupLocationId: data.pickupLocationId,
+        dropoffLocationId: data.dropoffLocationId,
+      },
+      currentStep: 2,
+      errors: {
+        ...state.errors,
+        1: null, // Clear step 1 errors
+      },
+    });
+  }, [state.errors, updateState]);
 
   /**
    * Set error for a specific step
@@ -474,6 +531,8 @@ export function WizardProvider({
     updateVehicleData,
     updateBookingData,
     updatePaymentData,
+    completeStep1,
+    completeStep3,
     setBookingResult,
     setStepError,
     setGlobalError,

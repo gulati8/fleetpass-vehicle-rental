@@ -21,7 +21,7 @@
 import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Lock, Shield, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, Shield, CreditCard, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useWizard } from '../BookingWizardContext';
 import { useCreateBooking, useCancelBooking } from '@/lib/hooks/api/use-bookings';
 import { useCreatePaymentIntent, useConfirmPayment } from '@/lib/hooks/api/use-payments';
@@ -35,6 +35,7 @@ import { Card, CardContent } from '@/components/ui/card/Card';
 import { paymentFormSchema, type PaymentFormData } from '@/lib/validations/payment.validation';
 import { cn } from '@/lib/utils';
 import type { CreateBookingRequest } from '@shared/types';
+import { calculateRentalDays, calculatePricing } from '@/lib/utils/pricing';
 
 /**
  * Props for the PaymentStep component
@@ -46,42 +47,11 @@ interface PaymentStepProps {
   onError: (error: Error) => void;
 }
 
-// Pricing Constants (must match backend calculation)
-const TAX_RATE = 0.08; // 8% tax
-const DEPOSIT_PERCENTAGE = 0.2; // 20% of total
-
 /**
  * Format cents to USD currency string
  */
 function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-/**
- * Calculate number of rental days from pickup/dropoff datetimes
- */
-function calculateDays(pickupDatetime: string, dropoffDatetime: string): number {
-  const pickup = new Date(pickupDatetime);
-  const dropoff = new Date(dropoffDatetime);
-  const days = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(1, days); // Minimum 1 day
-}
-
-/**
- * Calculate pricing breakdown based on daily rate and number of days
- */
-function calculatePricing(dailyRateCents: number, numDays: number) {
-  const subtotalCents = dailyRateCents * numDays;
-  const taxCents = Math.round(subtotalCents * TAX_RATE);
-  const totalCents = subtotalCents + taxCents;
-  const depositCents = Math.round(totalCents * DEPOSIT_PERCENTAGE);
-
-  return {
-    subtotalCents,
-    taxCents,
-    totalCents,
-    depositCents,
-  };
 }
 
 /**
@@ -104,7 +74,7 @@ type ProcessingState = 'idle' | 'creating_booking' | 'creating_intent' | 'confir
  * TODO: Add backend endpoint to cancel/delete bookings when payment fails
  */
 export function Step3Payment({ onSuccess, onError }: PaymentStepProps) {
-  const { state, updatePaymentData, setStepError, setStepLoading } = useWizard();
+  const { state, updatePaymentData, setStepError, setStepLoading, back } = useWizard();
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
@@ -160,7 +130,7 @@ export function Step3Payment({ onSuccess, onError }: PaymentStepProps) {
 
   // Calculate rental duration and pricing
   const numDays = useMemo(
-    () => pickupDatetime && dropoffDatetime ? calculateDays(pickupDatetime, dropoffDatetime) : 1,
+    () => pickupDatetime && dropoffDatetime ? calculateRentalDays(pickupDatetime, dropoffDatetime) : 1,
     [pickupDatetime, dropoffDatetime]
   );
 
@@ -250,6 +220,7 @@ export function Step3Payment({ onSuccess, onError }: PaymentStepProps) {
       const confirmedPayment = await confirmPayment.mutateAsync({
         paymentId: paymentIntentResult.payment.id,
         paymentMethodId: 'pm_card_visa', // Mock Stripe payment method ID
+        cardNumber: data.cardNumber, // Pass card number for mock testing (supports decline cards)
       });
 
       // Step 4: Success - update wizard and notify parent
@@ -257,12 +228,31 @@ export function Step3Payment({ onSuccess, onError }: PaymentStepProps) {
       setProcessingState('success');
       setStepLoading(3, false);
 
-      // Call success callback with booking and payment details
-      onSuccess({
-        bookingId: booking.id,
-        bookingNumber: booking.bookingNumber,
-        paymentId: confirmedPayment.id,
-      });
+      console.log('💚 Payment successful, calling onSuccess...');
+
+      // Call success callback - if navigation succeeds, component will unmount
+      // If navigation fails, reset processing state after 3 seconds
+      const navigationTimeout = setTimeout(() => {
+        console.log('⚠️  Navigation timeout - resetting processing state');
+        setProcessingState('idle');
+      }, 3000);
+
+      try {
+        onSuccess({
+          bookingId: booking.id,
+          bookingNumber: booking.bookingNumber,
+          paymentId: confirmedPayment.id,
+        });
+        console.log('✅ onSuccess callback completed');
+
+        // If we reach here and component is still mounted, navigation failed
+        // The timeout will reset the state after 3 seconds
+      } catch (err) {
+        console.error('❌ onSuccess threw error:', err);
+        clearTimeout(navigationTimeout);
+        setProcessingState('idle');
+        setError('Payment succeeded but navigation failed. Please check your booking in the bookings list.');
+      }
     } catch (err: unknown) {
       // Error handling with user-friendly messages
       setProcessingState('idle');
@@ -520,18 +510,31 @@ export function Step3Payment({ onSuccess, onError }: PaymentStepProps) {
           </div>
         </div>
 
-        {/* Submit Button */}
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          fullWidth
-          isLoading={isProcessing}
-          disabled={isProcessing || !termsAccepted}
-          leftIcon={!isProcessing ? <Lock className="w-5 h-5" /> : undefined}
-        >
-          {isProcessing ? 'Processing Payment...' : `Pay ${formatCurrency(depositCents)}`}
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={back}
+            disabled={isProcessing}
+            leftIcon={<ArrowLeft className="w-5 h-5" />}
+            className="flex-1 sm:flex-initial"
+          >
+            Back to Review
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            isLoading={isProcessing}
+            disabled={isProcessing || !termsAccepted}
+            leftIcon={!isProcessing ? <Lock className="w-5 h-5" /> : undefined}
+            className="flex-[2]"
+          >
+            {isProcessing ? 'Processing Payment...' : `Pay ${formatCurrency(depositCents)}`}
+          </Button>
+        </div>
 
         {/* Help Text */}
         <p className="text-xs text-center text-neutral-600">

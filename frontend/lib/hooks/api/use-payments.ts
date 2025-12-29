@@ -44,12 +44,15 @@ export function useConfirmPayment() {
     mutationFn: async ({
       paymentId,
       paymentMethodId,
+      cardNumber,
     }: {
       paymentId: string;
       paymentMethodId: string;
+      cardNumber?: string; // Optional: for testing with mock Stripe
     }) => {
       const response = await apiClient.post(`/payments/intents/${paymentId}/confirm`, {
         paymentMethodId,
+        cardNumber,
       });
       return response.data.data as Payment;
     },

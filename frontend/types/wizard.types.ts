@@ -191,6 +191,12 @@ export interface WizardContextValue {
   /** Update payment data (Step 3) */
   updatePaymentData: (data: Partial<PaymentFormData>) => void;
 
+  /** Complete Step 1 and navigate to Step 2 (atomic operation) */
+  completeStep1: (data: BookingWizardData) => void;
+
+  /** Complete Step 3 and navigate to Step 4 (atomic operation) */
+  completeStep3: (result: BookingResult) => void;
+
   /** Set booking result after successful payment (Step 3 → Step 4) */
   setBookingResult: (result: BookingResult) => void;
 

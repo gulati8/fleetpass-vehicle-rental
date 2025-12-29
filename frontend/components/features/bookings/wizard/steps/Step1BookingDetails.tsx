@@ -59,7 +59,7 @@ export interface BookingDetailsStepProps {
  * ```
  */
 export function Step1BookingDetails({ onNext }: BookingDetailsStepProps) {
-  const { state, updateBookingData, updateVehicleData, setStepError, clearErrors } = useWizard();
+  const { state, setStepError, clearErrors } = useWizard();
   const [estimatedTotal, setEstimatedTotal] = useState<number | null>(null);
 
   // Initialize form with data from wizard context (for edit flow or back navigation)
@@ -146,15 +146,8 @@ export function Step1BookingDetails({ onNext }: BookingDetailsStepProps) {
       setStepError(1, null);
       clearErrors();
 
-      // Update wizard context - both bookingData and vehicleData for step completion
-      updateBookingData(data);
-      updateVehicleData({
-        vehicleId: data.vehicleId,
-        pickupLocationId: data.pickupLocationId,
-        dropoffLocationId: data.dropoffLocationId,
-      });
-
       // Convert to BookingWizardData and call onNext
+      // Note: The wizard's onNext callback will handle updating the context
       const wizardData: BookingWizardData = {
         ...data,
         notes: data.notes || undefined,
