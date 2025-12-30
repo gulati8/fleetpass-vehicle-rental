@@ -135,7 +135,17 @@ apiClient.interceptors.response.use(
 
         // Redirect to login page with session expired message
         if (typeof window !== 'undefined') {
-          window.location.href = '/auth/login?session_expired=true';
+          // Dispatch custom event for toast notification before redirect
+          window.dispatchEvent(
+            new CustomEvent('session-expired', {
+              detail: { message: 'Your session has expired. Please login again.' },
+            })
+          );
+
+          // Small delay to allow toast to show before redirect
+          setTimeout(() => {
+            window.location.href = '/auth/login?session_expired=true';
+          }, 500);
         }
 
         throw new ApiError(

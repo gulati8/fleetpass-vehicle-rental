@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/lib/providers/QueryProvider'
+import { ToastProvider } from '@/lib/providers/ToastProvider'
 import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 import { GlobalErrorHandler } from '@/components/error/GlobalErrorHandler'
 
@@ -22,8 +23,10 @@ export default function RootLayout({
       <body className={inter.className}>
         <ErrorBoundary>
           <QueryProvider>
-            <GlobalErrorHandler />
-            {children}
+            <ToastProvider>
+              <GlobalErrorHandler />
+              {children}
+            </ToastProvider>
           </QueryProvider>
         </ErrorBoundary>
       </body>
