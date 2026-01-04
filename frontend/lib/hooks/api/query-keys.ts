@@ -15,6 +15,15 @@ export const queryKeys = {
     me: ['auth', 'me'] as const,
   },
 
+  // Users
+  users: {
+    all: ['users'] as const,
+    lists: () => [...queryKeys.users.all, 'list'] as const,
+    list: (filters?: any) => [...queryKeys.users.lists(), filters] as const,
+    details: () => [...queryKeys.users.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.users.details(), id] as const,
+  },
+
   // Locations
   locations: {
     all: ['locations'] as const,

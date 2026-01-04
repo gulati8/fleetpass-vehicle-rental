@@ -103,6 +103,8 @@ services:
       - ./frontend/hooks:/app/hooks
       - ./frontend/types:/app/types
       - ./frontend/public:/app/public
+      # Shared types (used by both frontend and backend)
+      - ./shared:/app/shared
       # Configuration files - changes here require container restart
       - ./frontend/next.config.js:/app/next.config.js
       - ./frontend/tsconfig.json:/app/tsconfig.json

@@ -27,5 +27,9 @@ export class CreateLeadDto {
 
   @IsString()
   @IsOptional()
+  assignedToId?: string; // User this lead is assigned to
+
+  @IsString()
+  @IsOptional()
   notes?: string;
 }
