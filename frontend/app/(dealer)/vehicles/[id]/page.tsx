@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -13,6 +13,8 @@ import {
   Car,
   Calendar,
   Loader2,
+  User,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button/Button';
 import { Badge } from '@/components/ui/badge/Badge';
@@ -26,8 +28,13 @@ import {
   ModalCloseButton,
 } from '@/components/ui/modal/Modal';
 import { useVehicle, useDeleteVehicle } from '@/lib/hooks/api/use-vehicles';
+import { useBookings } from '@/lib/hooks/api/use-bookings';
 import { VehicleAvailabilityCalendar } from '@/components/features/vehicles/VehicleAvailabilityCalendar';
+import { BookingStatusBadge } from '@/components/features/bookings/BookingStatusBadge';
 import { formatCentsToDollars } from '@/lib/validations/vehicle.validation';
+import { BookingWithRelations } from '@shared/types';
+
+const RECENT_BOOKINGS_LIMIT = 5;
 
 export default function VehicleDetailPage() {
   const router = useRouter();
@@ -37,7 +44,39 @@ export default function VehicleDetailPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const { data: vehicle, isLoading: vehicleLoading } = useVehicle(vehicleId);
+  const { data: bookings, isLoading: bookingsLoading, isError } = useBookings({
+    vehicleId,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+    limit: RECENT_BOOKINGS_LIMIT
+  });
   const deleteVehicle = useDeleteVehicle();
+
+  // Helper function to generate date arrays from bookings
+  const getBookedDatesFromBookings = (bookings: BookingWithRelations[] | undefined): Date[] => {
+    if (!bookings || bookings.length === 0) return [];
+
+    const bookedDates: Date[] = [];
+
+    bookings.forEach((booking) => {
+      const start = new Date(booking.pickupDatetime);
+      const end = new Date(booking.dropoffDatetime);
+
+      // Generate all dates between start and end (inclusive)
+      const currentDate = new Date(start);
+      while (currentDate <= end) {
+        bookedDates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    });
+
+    return bookedDates;
+  };
+
+  // Compute booked dates from bookings
+  const bookedDates = useMemo(() => {
+    return getBookedDatesFromBookings(bookings);
+  }, [bookings]);
 
   const handleEdit = () => {
     router.push(`/vehicles/${vehicleId}/edit`);
@@ -321,21 +360,108 @@ export default function VehicleDetailPage() {
               <CardContent>
                 <VehicleAvailabilityCalendar
                   vehicleId={vehicle.id}
-                  bookedDates={[]}
+                  bookedDates={bookedDates}
                   maintenanceDates={[]}
                 />
               </CardContent>
             </Card>
 
-            {/* Recent bookings placeholder */}
+            {/* Recent bookings */}
             <Card>
               <CardHeader>
                 <CardTitle>Recent Bookings</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-neutral-500 text-sm">No bookings yet</p>
-                </div>
+                {bookingsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 animate-pulse"
+                      >
+                        <div className="w-10 h-10 bg-neutral-200 rounded-full flex-shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-neutral-200 rounded w-3/4" />
+                          <div className="h-3 bg-neutral-200 rounded w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : isError ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 rounded-full bg-error-50 flex items-center justify-center mx-auto mb-3">
+                      <AlertCircle className="w-6 h-6 text-error-500" />
+                    </div>
+                    <p className="text-error-600 text-sm">Failed to load bookings</p>
+                    <p className="text-neutral-500 text-xs mt-1">Please try again later</p>
+                  </div>
+                ) : !bookings || bookings.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Calendar className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+                    <p className="text-neutral-500 text-sm">No bookings yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {bookings.map((booking) => {
+                        const customerName = `${booking.customer?.firstName || ''} ${
+                          booking.customer?.lastName || ''
+                        }`.trim();
+                        const pickupDate = new Date(
+                          booking.pickupDatetime
+                        ).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        });
+                        const dropoffDate = new Date(
+                          booking.dropoffDatetime
+                        ).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        });
+
+                        return (
+                          <div
+                            key={booking.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => router.push(`/bookings/${booking.id}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                router.push(`/bookings/${booking.id}`);
+                              }
+                            }}
+                            aria-label={`View booking ${booking.bookingNumber} for ${customerName || 'Unknown Customer'}`}
+                            className="flex items-start gap-3 p-3 rounded-lg border border-neutral-200 hover:bg-neutral-50 cursor-pointer transition-colors"
+                          >
+                            <div className="w-10 h-10 bg-primary-50 rounded-full flex items-center justify-center flex-shrink-0">
+                              <User className="w-5 h-5 text-primary-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <p className="font-medium text-neutral-900 text-sm truncate">
+                                  {customerName || 'Unknown Customer'}
+                                </p>
+                                <BookingStatusBadge
+                                  status={booking.status}
+                                  size="sm"
+                                  showIcon={false}
+                                />
+                              </div>
+                              <p className="text-xs text-neutral-500 mb-1">
+                                {booking.bookingNumber}
+                              </p>
+                              <p className="text-xs text-neutral-600">
+                                {pickupDate} - {dropoffDate}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
