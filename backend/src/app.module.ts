@@ -19,6 +19,7 @@ import { CustomerModule } from './customer/customer.module';
 import { BookingModule } from './booking/booking.module';
 import { LeadModule } from './lead/lead.module';
 import { DealModule } from './deal/deal.module';
+import { UserModule } from './user/user.module';
 import { StripeMockModule } from './stripe-mock/stripe-mock.module';
 import { PaymentModule } from './payment/payment.module';
 import { PersonaMockModule } from './persona-mock/persona-mock.module';
@@ -54,6 +55,7 @@ import { HealthModule } from './health/health.module';
     StripeMockModule,
     PersonaMockModule,
     AuthModule,
+    UserModule,
     LocationModule,
     VehicleModule,
     CustomerModule,

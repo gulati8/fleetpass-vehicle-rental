@@ -1,58 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { queryKeys } from './query-keys';
+import type {
+  Lead,
+  LeadWithRelations,
+  CreateLeadRequest,
+  UpdateLeadRequest,
+  LeadFilters,
+  Deal,
+} from '@shared/types';
 
-// Types
-interface Lead {
-  id: string;
-  dealerId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  company?: string;
-  status: 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'CONVERTED' | 'LOST';
-  source: string;
-  notes?: string;
-  estimatedValue?: number;
-  assignedToUserId?: string;
-  convertedToDealId?: string;
-  createdAt: string;
-  updatedAt: string;
-  assignedTo?: any;
-  deal?: any;
+// Additional types for mutations
+interface AssignLeadRequest {
+  assignedToId: string;
 }
 
-interface LeadFilters {
-  dealerId?: string;
-  status?: string;
-  source?: string;
-  assignedToUserId?: string;
-  search?: string;
-}
-
-interface CreateLeadData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  company?: string;
-  source: string;
-  notes?: string;
-  estimatedValue?: number;
-}
-
-interface UpdateLeadData extends Partial<CreateLeadData> {
-  id: string;
-  status?: 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'CONVERTED' | 'LOST';
-}
-
-interface ConvertLeadData {
-  customerId: string;
+interface ConvertLeadRequest {
+  dealValueCents: number;
   vehicleId: string;
-  locationId: string;
-  startDate: string;
-  endDate: string;
+  notes?: string;
 }
 
 // Query: Get All Leads (with filters)
@@ -61,7 +27,7 @@ export function useLeads(filters?: LeadFilters) {
     queryKey: queryKeys.leads.list(filters),
     queryFn: async () => {
       const response = await apiClient.get('/leads', { params: filters });
-      return response.data.data as Lead[];
+      return response.data.data as LeadWithRelations[];
     },
   });
 }
@@ -72,7 +38,7 @@ export function useLead(id: string) {
     queryKey: queryKeys.leads.detail(id),
     queryFn: async () => {
       const response = await apiClient.get(`/leads/${id}`);
-      return response.data.data as Lead;
+      return response.data.data as LeadWithRelations;
     },
     enabled: !!id,
   });
@@ -83,9 +49,9 @@ export function useCreateLead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateLeadData) => {
+    mutationFn: async (data: CreateLeadRequest) => {
       const response = await apiClient.post('/leads', data);
-      return response.data.data as Lead;
+      return response.data.data as LeadWithRelations;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.leads.lists() });
@@ -98,9 +64,9 @@ export function useUpdateLead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...data }: UpdateLeadData) => {
+    mutationFn: async ({ id, ...data }: UpdateLeadRequest & { id: string }) => {
       const response = await apiClient.patch(`/leads/${id}`, data);
-      return response.data.data as Lead;
+      return response.data.data as LeadWithRelations;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.leads.detail(variables.id) });
@@ -114,9 +80,9 @@ export function useAssignLead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, userId }: { id: string; userId: string }) => {
-      const response = await apiClient.post(`/leads/${id}/assign`, { userId });
-      return response.data.data as Lead;
+    mutationFn: async ({ id, assignedToId }: { id: string; assignedToId: string }) => {
+      const response = await apiClient.post(`/leads/${id}/assign`, { assignedToId });
+      return response.data.data as LeadWithRelations;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.leads.detail(variables.id) });
@@ -130,9 +96,9 @@ export function useConvertLead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, dealData }: { id: string; dealData: ConvertLeadData }) => {
+    mutationFn: async ({ id, ...dealData }: { id: string } & ConvertLeadRequest) => {
       const response = await apiClient.post(`/leads/${id}/convert`, dealData);
-      return response.data.data as { lead: Lead; deal: any };
+      return response.data.data as { lead: LeadWithRelations; deal: Deal };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.leads.detail(variables.id) });
