@@ -229,6 +229,24 @@ export class VehicleDetailPage {
   readonly statusBadge: Locator;
   readonly deleteConfirmButton: Locator;
 
+  // Recent Bookings section
+  readonly recentBookingsSection: Locator;
+  readonly recentBookingsTitle: Locator;
+  readonly bookingItems: Locator;
+  readonly emptyBookingsState: Locator;
+  readonly bookingsLoadingSkeleton: Locator;
+  readonly bookingsErrorState: Locator;
+
+  // Availability Calendar section
+  readonly availabilityCalendarSection: Locator;
+  readonly availabilityCalendarTitle: Locator;
+  readonly calendarGrid: Locator;
+  readonly calendarDays: Locator;
+  readonly calendarLegend: Locator;
+  readonly calendarPrevButton: Locator;
+  readonly calendarNextButton: Locator;
+  readonly calendarTodayButton: Locator;
+
   constructor(page: Page) {
     this.page = page;
     this.vehicleTitle = page.locator('h1').first();
@@ -238,6 +256,24 @@ export class VehicleDetailPage {
     this.backButton = page.getByRole('button', { name: /back/i }).or(page.getByRole('link', { name: /back/i }));
     this.statusBadge = page.locator('[class*="badge"]').first();
     this.deleteConfirmButton = page.getByRole('button', { name: /delete vehicle/i }).or(page.getByRole('button', { name: /^delete$/i }));
+
+    // Recent Bookings section locators
+    this.recentBookingsSection = page.getByRole('heading', { name: /recent bookings/i }).locator('..');
+    this.recentBookingsTitle = page.getByRole('heading', { name: /recent bookings/i });
+    this.bookingItems = page.locator('[role="button"][tabindex="0"]').filter({ has: page.locator('.text-neutral-900.text-sm') });
+    this.emptyBookingsState = page.getByText(/no bookings yet/i);
+    this.bookingsLoadingSkeleton = page.locator('.animate-pulse').filter({ has: page.locator('.bg-neutral-200') }).first();
+    this.bookingsErrorState = page.getByText(/failed to load bookings/i);
+
+    // Availability Calendar section locators
+    this.availabilityCalendarSection = page.getByRole('heading', { name: /availability calendar/i }).locator('..');
+    this.availabilityCalendarTitle = page.getByRole('heading', { name: /availability calendar/i });
+    this.calendarGrid = page.locator('.grid.grid-cols-7.gap-1').last();
+    this.calendarDays = page.locator('.aspect-square.flex.items-center.justify-center');
+    this.calendarLegend = page.locator('.border-t.border-neutral-200').filter({ has: page.getByText(/available/i) });
+    this.calendarPrevButton = page.getByRole('button', { name: /previous month/i });
+    this.calendarNextButton = page.getByRole('button', { name: /next month/i });
+    this.calendarTodayButton = page.getByRole('button', { name: /today/i });
   }
 
   async goto(vehicleId: string) {
@@ -262,5 +298,160 @@ export class VehicleDetailPage {
 
   async hasVehicleInfo(info: string): Promise<boolean> {
     return await this.page.getByText(info).isVisible().catch(() => false);
+  }
+
+  /**
+   * Recent Bookings section methods
+   */
+  async getRecentBookingsCount(): Promise<number> {
+    // Wait for bookings to load or empty state to appear
+    await this.page.waitForTimeout(2000);
+    try {
+      // Check if empty state is visible
+      if (await this.emptyBookingsState.isVisible()) {
+        return 0;
+      }
+      return await this.bookingItems.count();
+    } catch {
+      return 0;
+    }
+  }
+
+  async clickBookingByIndex(index: number) {
+    const booking = this.bookingItems.nth(index);
+    await booking.click();
+  }
+
+  async clickFirstBooking() {
+    await this.clickBookingByIndex(0);
+  }
+
+  async getBookingInfo(index: number): Promise<{
+    customerName: string | null;
+    bookingNumber: string | null;
+    dates: string | null;
+    status: string | null;
+  }> {
+    const booking = this.bookingItems.nth(index);
+
+    const customerName = await booking.locator('.font-medium.text-neutral-900.text-sm').textContent();
+    const bookingNumber = await booking.locator('.text-xs.text-neutral-500').first().textContent();
+    const dates = await booking.locator('.text-xs.text-neutral-600').textContent();
+    const status = await booking.locator('[class*="badge"]').first().textContent();
+
+    return {
+      customerName,
+      bookingNumber,
+      dates,
+      status,
+    };
+  }
+
+  async isBookingsLoading(): Promise<boolean> {
+    return await this.bookingsLoadingSkeleton.isVisible().catch(() => false);
+  }
+
+  async hasBookingsError(): Promise<boolean> {
+    return await this.bookingsErrorState.isVisible().catch(() => false);
+  }
+
+  async hasEmptyBookingsState(): Promise<boolean> {
+    return await this.emptyBookingsState.isVisible().catch(() => false);
+  }
+
+  /**
+   * Availability Calendar methods
+   */
+  async getCalendarDayElement(day: number): Promise<Locator> {
+    // Get the day cell by its text content
+    return this.calendarDays.filter({ hasText: new RegExp(`^${day}$`) });
+  }
+
+  async isDateBooked(day: number): Promise<boolean> {
+    const dayElement = await this.getCalendarDayElement(day);
+    const classes = await dayElement.getAttribute('class');
+    return classes?.includes('bg-error-100') || false;
+  }
+
+  async isDateAvailable(day: number): Promise<boolean> {
+    const dayElement = await this.getCalendarDayElement(day);
+    const classes = await dayElement.getAttribute('class');
+    return classes?.includes('bg-success-50') || false;
+  }
+
+  async isDateInMaintenance(day: number): Promise<boolean> {
+    const dayElement = await this.getCalendarDayElement(day);
+    const classes = await dayElement.getAttribute('class');
+    return classes?.includes('bg-warning-100') || false;
+  }
+
+  async clickCalendarPrevMonth() {
+    await this.calendarPrevButton.click();
+    await this.page.waitForTimeout(500);
+  }
+
+  async clickCalendarNextMonth() {
+    await this.calendarNextButton.click();
+    await this.page.waitForTimeout(500);
+  }
+
+  async clickCalendarToday() {
+    await this.calendarTodayButton.click();
+    await this.page.waitForTimeout(500);
+  }
+
+  async getCalendarMonthYear(): Promise<string | null> {
+    // Get the month/year heading from calendar
+    const heading = this.page.locator('.text-lg.font-semibold.text-neutral-900').filter({ hasText: /January|February|March|April|May|June|July|August|September|October|November|December/i });
+    return await heading.textContent();
+  }
+
+  async isCalendarLegendVisible(): Promise<boolean> {
+    return await this.calendarLegend.isVisible();
+  }
+
+  async getBookedDatesInCalendar(): Promise<number[]> {
+    const bookedDays: number[] = [];
+    const dayElements = await this.calendarDays.all();
+
+    for (const dayElement of dayElements) {
+      const classes = await dayElement.getAttribute('class');
+      if (classes?.includes('bg-error-100')) {
+        const text = await dayElement.textContent();
+        const day = parseInt(text?.trim() || '0', 10);
+        if (day > 0) {
+          bookedDays.push(day);
+        }
+      }
+    }
+
+    return bookedDays;
+  }
+
+  async getAvailableDatesInCalendar(): Promise<number[]> {
+    const availableDays: number[] = [];
+    const dayElements = await this.calendarDays.all();
+
+    for (const dayElement of dayElements) {
+      const classes = await dayElement.getAttribute('class');
+      if (classes?.includes('bg-success-50')) {
+        const text = await dayElement.textContent();
+        const day = parseInt(text?.trim() || '0', 10);
+        if (day > 0) {
+          availableDays.push(day);
+        }
+      }
+    }
+
+    return availableDays;
+  }
+
+  /**
+   * Keyboard navigation test for Recent Bookings
+   */
+  async navigateBookingsWithKeyboard(index: number): Promise<void> {
+    const booking = this.bookingItems.nth(index);
+    await booking.focus();
+    await this.page.keyboard.press('Enter');
   }
 }
